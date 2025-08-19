@@ -630,17 +630,13 @@ app.post('/webhook', async (req, res) => {
 // Configurar webhook automáticamente
 async function setupWebhook() {
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-  const RAILWAY_STATIC_URL = process.env.RAILWAY_STATIC_URL;
+  const RAILWAY_STATIC_URL = process.env.RAILWAY_STATIC_URL || process.env.RAILWAY_PUBLIC_DOMAIN || 'https://distribuidora-rg-production.up.railway.app';
   
   if (!TELEGRAM_BOT_TOKEN) {
     console.log('⚠️  TELEGRAM_BOT_TOKEN no configurado');
     return;
   }
 
-  if (!RAILWAY_STATIC_URL) {
-    console.log('⚠️  RAILWAY_STATIC_URL no disponible aún');
-    return;
-  }
 
   try {
     const webhookUrl = `${RAILWAY_STATIC_URL}/webhook`;
@@ -679,6 +675,94 @@ async function setupWebhook() {
   }
 }
 
+// Endpoint para configurar webhook manualmente
+app.post('/api/setup-webhook', async (req, res) => {
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  const { webhookUrl } = req.body;
+  
+  if (!TELEGRAM_BOT_TOKEN) {
+    return res.status(400).json({ 
+      error: 'TELEGRAM_BOT_TOKEN no configurado',
+      success: false 
+    });
+  }
+
+  // Usar URL del request si no se proporciona una específica
+  const baseUrl = webhookUrl || `${req.protocol}://${req.get('host')}`;
+  const fullWebhookUrl = `${baseUrl}/webhook`;
+
+  try {
+    console.log('🔧 Configurando webhook manualmente:', fullWebhookUrl);
+    
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        url: fullWebhookUrl,
+        allowed_updates: ["message"]
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.ok) {
+      console.log('✅ Webhook configurado exitosamente');
+      
+      // Verificar configuración
+      const infoResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo`);
+      const info = await infoResponse.json();
+      
+      res.json({
+        success: true,
+        message: 'Webhook configurado exitosamente',
+        webhook_url: fullWebhookUrl,
+        webhook_info: info.result
+      });
+    } else {
+      console.error('❌ Error configurando webhook:', result);
+      res.status(400).json({
+        success: false,
+        error: result.description,
+        telegram_response: result
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error en setupWebhook:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Endpoint para obtener info del webhook
+app.get('/api/webhook-info', async (req, res) => {
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  
+  if (!TELEGRAM_BOT_TOKEN) {
+    return res.status(400).json({ 
+      error: 'TELEGRAM_BOT_TOKEN no configurado' 
+    });
+  }
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo`);
+    const result = await response.json();
+    
+    res.json({
+      success: true,
+      webhook_info: result.result,
+      is_configured: !!result.result.url,
+      webhook_url: result.result.url
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Servir la aplicación React para todas las rutas no API
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
@@ -693,8 +777,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Health check: /health`);
   console.log(`📊 API Info: /api/info`);
   console.log(`🧪 Test Sheets: /api/test/sheets`);
+  console.log(`🔧 Setup Webhook: /api/setup-webhook`);
+  console.log(`📋 Webhook Info: /api/webhook-info`);
   console.log('🚀 ========================================');
   
-  // Configurar webhook después de 10 segundos
-  setTimeout(setupWebhook, 10000);
+  // Intentar configurar webhook después de 15 segundos
+  setTimeout(setupWebhook, 15000);
 });
