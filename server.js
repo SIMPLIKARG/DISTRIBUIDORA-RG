@@ -169,11 +169,6 @@ app.get('/api/pedidos', async (req, res) => {
   res.json(pedidos);
 });
 
-app.get('/api/detallepedidos', async (req, res) => {
-  const detalles = await leerSheet('DetallePedidos');
-  res.json(detalles);
-});
-
 app.get('/api/stats', async (req, res) => {
   const clientes = await leerSheet('Clientes');
   const productos = await leerSheet('Productos');
@@ -256,10 +251,16 @@ async function manejarMensaje(message) {
       sesion.estado = 'cliente_confirmado';
       sesionesBot.set(userId, sesion);
       
-      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${clienteEncontrado.nombre}\n\n¿Qué deseas hacer?`, {
+      const categorias = await leerSheet('Categorias');
+      const keyboard = categorias.map(cat => [{ 
+        text: cat.categoria_nombre, 
+        callback_data: `categoria_${cat.categoria_id}` 
+      }]);
+      
+      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${clienteEncontrado.nombre}\n\n📂 Selecciona una categoría:`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🛍️ Continuar con Pedido', callback_data: 'continuar_pedido' }],
+            ...keyboard,
             [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
           ]
         }
@@ -270,6 +271,60 @@ async function manejarMensaje(message) {
     return;
   }
   
+  // Manejar nuevo cliente
+  if (sesion.estado === 'esperando_nuevo_cliente') {
+    const nombreCliente = texto.trim();
+    
+    if (nombreCliente.length < 2) {
+      await enviarMensaje(chatId, '❌ El nombre debe tener al menos 2 caracteres. Intenta de nuevo:');
+      return;
+    }
+    
+    try {
+      // Obtener el próximo ID de cliente
+      const clientes = await leerSheet('Clientes');
+      const maxId = Math.max(...clientes.map(c => parseInt(c.cliente_id) || 0));
+      const nuevoId = maxId + 1;
+      
+      // Agregar cliente a Google Sheets
+      await escribirSheet('Clientes', [nuevoId, nombreCliente]);
+      
+      // Seleccionar el nuevo cliente
+      sesion.clienteSeleccionado = {
+        cliente_id: nuevoId,
+        nombre: nombreCliente
+      };
+      sesion.estado = 'cliente_confirmado';
+      sesionesBot.set(userId, sesion);
+      
+      const categorias = await leerSheet('Categorias');
+      const keyboard = categorias.map(cat => [{ 
+        text: cat.categoria_nombre, 
+        callback_data: `categoria_${cat.categoria_id}` 
+      }]);
+      
+      await enviarMensaje(chatId, `✅ Cliente "${nombreCliente}" agregado y seleccionado\n\n📂 Selecciona una categoría:`, {
+        reply_markup: {
+          inline_keyboard: [
+            ...keyboard,
+            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+          ]
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error agregando cliente:', error);
+      await enviarMensaje(chatId, '❌ Error agregando cliente. Intenta de nuevo:', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Reintentar', callback_data: 'nuevo_cliente' }],
+            [{ text: '📋 Ver Lista Existente', callback_data: 'lista_clientes' }]
+          ]
+        }
+      });
+    }
+    return;
+  }
   // Manejar cantidad de producto
   if (sesion.estado === 'esperando_cantidad' && /^\d+$/.test(texto)) {
     const cantidad = parseInt(texto);
@@ -291,7 +346,7 @@ async function manejarMensaje(message) {
       await enviarMensaje(chatId, `✅ Agregado: ${cantidad}x ${producto.producto_nombre}\nSubtotal: $${importe}\nTotal del pedido: $${sesion.pedido.total}\n\n¿Qué deseas hacer?`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '➕ Agregar más productos', callback_data: 'hacer_pedido' }],
+            [{ text: '➕ Agregar más productos', callback_data: 'continuar_pedido' }],
             [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }],
             [{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]
           ]
@@ -313,14 +368,40 @@ async function manejarCallback(callback_query) {
   const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
   if (data === 'hacer_pedido') {
-    await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
-          [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]
-        ]
-      }
-    });
+    // Si ya hay un cliente seleccionado, ir directo a categorías
+    if (sesion.clienteSeleccionado) {
+      const categorias = await leerSheet('Categorias');
+      const keyboard = categorias.map(cat => [{ 
+        text: cat.categoria_nombre, 
+        callback_data: `categoria_${cat.categoria_id}` 
+      }]);
+      
+      await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado.nombre}\n\n📂 Selecciona una categoría:`, {
+        reply_markup: { 
+          inline_keyboard: [
+            ...keyboard,
+            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+          ]
+        }
+      });
+    } else {
+      await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
+            [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
+            [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+          ]
+        }
+      });
+    }
+  }
+  
+  if (data === 'nuevo_cliente') {
+    sesion.estado = 'esperando_nuevo_cliente';
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, '➕ Escribe el nombre del nuevo cliente:');
   }
   
   if (data === 'lista_clientes') {
@@ -330,12 +411,13 @@ async function manejarCallback(callback_query) {
       callback_data: `cliente_${cliente.cliente_id}` 
     }]);
     
-    if (clientes.length > 10) {
-      keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
-    }
+    keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
+    keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
     
     await enviarMensaje(chatId, '👥 Selecciona un cliente:', {
-      reply_markup: { inline_keyboard: keyboard }
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
     });
   }
   
@@ -356,10 +438,16 @@ async function manejarCallback(callback_query) {
       sesion.estado = 'cliente_confirmado';
       sesionesBot.set(userId, sesion);
       
-      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${cliente.nombre}\n\n¿Qué deseas hacer?`, {
+      const categorias = await leerSheet('Categorias');
+      const keyboard = categorias.map(cat => [{ 
+        text: cat.categoria_nombre, 
+        callback_data: `categoria_${cat.categoria_id}` 
+      }]);
+      
+      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${cliente.nombre}\n\n📂 Selecciona una categoría:`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🛍️ Continuar con Pedido', callback_data: 'continuar_pedido' }],
+            ...keyboard,
             [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
           ]
         }
@@ -372,23 +460,13 @@ async function manejarCallback(callback_query) {
       reply_markup: {
         inline_keyboard: [
           [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
-          [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]
+          [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
+          [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
         ]
       }
     });
   }
   
-  if (data === 'continuar_pedido') {
-    const categorias = await leerSheet('Categorias');
-    const keyboard = categorias.map(cat => [{ 
-      text: cat.categoria_nombre, 
-      callback_data: `categoria_${cat.categoria_id}` 
-    }]);
-    
-    await enviarMensaje(chatId, '📂 Selecciona una categoría:', {
-      reply_markup: { inline_keyboard: keyboard }
-    });
-  }
   
   if (data.startsWith('categoria_')) {
     const categoriaId = data.split('_')[1];
@@ -438,13 +516,30 @@ async function manejarCallback(callback_query) {
       await enviarMensaje(chatId, mensaje, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '➕ Agregar más', callback_data: 'hacer_pedido' }],
+            [{ text: '➕ Agregar más', callback_data: 'continuar_pedido' }],
             [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }],
             [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }]
           ]
         }
       });
     }
+  }
+  
+  if (data === 'continuar_pedido') {
+    const categorias = await leerSheet('Categorias');
+    const keyboard = categorias.map(cat => [{ 
+      text: cat.categoria_nombre, 
+      callback_data: `categoria_${cat.categoria_id}` 
+    }]);
+    
+    await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado?.nombre || 'No seleccionado'}\n\n📂 Selecciona una categoría:`, {
+      reply_markup: { 
+        inline_keyboard: [
+          ...keyboard,
+          [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+        ]
+      }
+    });
   }
   
   if (data === 'vaciar_carrito') {
@@ -455,7 +550,7 @@ async function manejarCallback(callback_query) {
     await enviarMensaje(chatId, '🗑️ Carrito vaciado\n\n¿Deseas hacer un nuevo pedido?', {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'continuar_pedido' }]
         ]
       }
     });
@@ -537,7 +632,8 @@ async function manejarCallback(callback_query) {
     await enviarMensaje(chatId, mensaje, {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛍️ Nuevo Pedido', callback_data: 'hacer_pedido' }]
+          [{ text: '🛍️ Nuevo Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '👤 Mismo Cliente', callback_data: 'continuar_pedido' }]
         ]
       }
     });
