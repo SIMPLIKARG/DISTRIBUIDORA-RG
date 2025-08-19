@@ -4,6 +4,15 @@ import { GoogleAuth } from 'google-auth-library';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 
+// Suprimir warning de punycode (viene de googleapis)
+process.removeAllListeners('warning');
+process.on('warning', (warning) => {
+  if (warning.name === 'DeprecationWarning' && warning.message.includes('punycode')) {
+    return; // Ignorar warning de punycode
+  }
+  console.warn(warning.message);
+});
+
 dotenv.config();
 
 const app = express();
