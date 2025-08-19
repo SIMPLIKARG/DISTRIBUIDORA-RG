@@ -868,8 +868,241 @@ app.get('/', (req, res) => {
         </div>
 
         <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-2xl font-bold mb-4">📋 Pedidos Recientes</h2>
-            <div id="pedidos" class="space-y-4">
+            <h2 class="text-2xl font-bold mb-6">📋 Gestión de Pedidos</h2>
+            
+            <!-- Pedidos Pendientes -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-yellow-600 mb-4">⏳ Pedidos Pendientes</h3>
+                <div id="pedidosPendientes" class="space-y-4">
+                    <div class="text-center text-gray-500">Cargando...</div>
+                </div>
+            </div>
+            
+            <!-- Pedidos Confirmados -->
+            <div>
+                <h3 class="text-xl font-semibold text-green-600 mb-4">✅ Pedidos Confirmados</h3>
+                <div id="pedidosConfirmados" class="space-y-4">
+                    <div class="text-center text-gray-500">Cargando...</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estadísticas de pedidos cancelados (solo para info) -->
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mt-6">
+            <h4 class="text-red-800 font-semibold mb-2">📊 Información</h4>
+            <p class="text-red-700 text-sm">Los pedidos cancelados no se muestran en el dashboard pero se mantienen en Google Sheets para auditoría.</p>
+            <p class="text-red-600 text-sm mt-1">Total cancelados: <span id="pedidosCancelados">-</span></p>
+        </div>
+    </div>
+
+    <script>
+        function cambiarEstado(pedidoId, nuevoEstado) {
+            fetch('/api/pedidos/' + pedidoId + '/estado', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: nuevoEstado })
+            })
+            .then(function(response) {
+                if (response.ok) {
+                    cargarDatos();
+                } else {
+                    alert('Error cambiando estado');
+                }
+            })
+            .catch(function(error) {
+                alert('Error de conexión');
+            });
+        }
+
+        function verDetallePedido(pedidoId) {
+            fetch('/api/pedidos/' + pedidoId + '/detalle')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                        return;
+                    }
+                    
+                    mostrarModalDetalle(data.pedido, data.detalles);
+                })
+                .catch(function(error) {
+                    alert('Error cargando detalle del pedido');
+                });
+        }
+        
+        function mostrarModalDetalle(pedido, detalles) {
+            var modal = document.getElementById('modalDetalle');
+            var titulo = document.getElementById('modalTitulo');
+            var contenido = document.getElementById('modalContenido');
+            
+            titulo.textContent = 'Pedido ' + pedido.pedido_id;
+            
+            var estadoClass = '';
+            if (pedido.estado === 'CONFIRMADO') {
+                estadoClass = 'bg-green-100 text-green-800';
+            } else if (pedido.estado === 'PENDIENTE') {
+                estadoClass = 'bg-yellow-100 text-yellow-800';
+            } else {
+                estadoClass = 'bg-red-100 text-red-800';
+            }
+            
+            var html = '<div class="bg-gray-50 p-4 rounded-lg mb-4">' +
+                      '<div class="grid grid-cols-2 gap-4">' +
+                      '<div><strong>Cliente:</strong> ' + pedido.cliente_nombre + '</div>' +
+                      '<div><strong>Fecha:</strong> ' + pedido.fecha_hora + '</div>' +
+                      '<div><strong>Items:</strong> ' + (pedido.items_cantidad || 0) + '</div>' +
+                      '<div><strong>Total:</strong> $' + parseInt(pedido.total || 0).toLocaleString() + '</div>' +
+                      '</div>' +
+                      '<div class="mt-2">' +
+                      '<span class="px-2 py-1 rounded text-sm ' + estadoClass + '">' + pedido.estado + '</span>' +
+                      '</div>' +
+                      '</div>';
+            
+            if (detalles && detalles.length > 0) {
+                html += '<div class="border-t pt-4">' +
+                       '<h4 class="font-semibold mb-3">📦 Productos:</h4>' +
+                       '<div class="space-y-2">';
+                
+                for (var i = 0; i < detalles.length; i++) {
+                    var detalle = detalles[i];
+                    html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">' +
+                           '<div>' +
+                           '<div class="font-medium">' + detalle.producto_nombre + '</div>' +
+                           '<div class="text-sm text-gray-600">Cantidad: ' + detalle.cantidad + ' x $' + parseInt(detalle.precio_unitario || 0).toLocaleString() + '</div>' +
+                           '</div>' +
+                           '<div class="font-bold">$' + parseInt(detalle.importe || 0).toLocaleString() + '</div>' +
+                           '</div>';
+                }
+                
+                html += '</div></div>';
+            } else {
+                html += '<div class="text-center text-gray-500 py-4">No hay detalles disponibles para este pedido</div>';
+            }
+            
+            contenido.innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+        
+        function cerrarModal() {
+            var modal = document.getElementById('modalDetalle');
+            modal.classList.add('hidden');
+        }
+        
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modalDetalle').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
+        });
+        
+        function cargarDatos() {
+            fetch('/health')
+                .then(function(r) { return r.json(); })
+                .then(function(h) {
+                    document.getElementById('sheets-status').textContent = h.sheets ? '✅' : '❌';
+                    document.getElementById('telegram-status').textContent = h.telegram ? '✅' : '❌';
+                    document.getElementById('server-status').textContent = h.status === 'OK' ? '✅' : '❌';
+                });
+
+            fetch('/api/stats')
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    document.getElementById('totalClientes').textContent = s.totalClientes;
+                    document.getElementById('totalProductos').textContent = s.totalProductos;
+                    document.getElementById('totalPedidos').textContent = s.totalPedidos;
+                    document.getElementById('ventasTotal').textContent = '$' + s.ventasTotal.toLocaleString();
+                });
+
+            fetch('/api/pedidos')
+                .then(function(r) { return r.json(); })
+                .then(function(pedidos) {
+                    // Filtrar pedidos cancelados
+                    var pedidosActivos = pedidos.filter(function(p) {
+                        return p.estado !== 'CANCELADO';
+                    });
+                    
+                    // Separar por estado
+                    var pendientes = pedidosActivos.filter(function(p) {
+                        return p.estado === 'PENDIENTE';
+                    });
+                    
+                    var confirmados = pedidosActivos.filter(function(p) {
+                        return p.estado === 'CONFIRMADO';
+                    });
+                    
+                    // Contar cancelados para estadística
+                    var cancelados = pedidos.filter(function(p) {
+                        return p.estado === 'CANCELADO';
+                    });
+                    
+                    document.getElementById('pedidosCancelados').textContent = cancelados.length;
+                    
+                    // Mostrar pedidos pendientes
+                    var containerPendientes = document.getElementById('pedidosPendientes');
+                    if (pendientes.length === 0) {
+                        containerPendientes.innerHTML = '<div class="text-center text-gray-500 py-8">🎉 No hay pedidos pendientes</div>';
+                    } else {
+                        var htmlPendientes = '';
+                        // Mostrar más recientes primero
+                        pendientes.reverse().forEach(function(p) {
+                            htmlPendientes += '<div class="flex justify-between items-center p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg">' +
+                                           '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
+                                           '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
+                                           '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
+                                           '<div class="flex items-center gap-2 mt-2">' +
+                                           '<span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">⏳ PENDIENTE</span>' +
+                                           '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CONFIRMADO\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">✓ Confirmar</button>' +
+                                           '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CANCELADO\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">✗ Cancelar</button>' +
+                                           '</div></div></div>';
+                        });
+                        containerPendientes.innerHTML = htmlPendientes;
+                    }
+                    
+                    // Mostrar pedidos confirmados (últimos 10)
+                    var containerConfirmados = document.getElementById('pedidosConfirmados');
+                    if (confirmados.length === 0) {
+                        containerConfirmados.innerHTML = '<div class="text-center text-gray-500 py-8">📋 No hay pedidos confirmados</div>';
+                    } else {
+                        var htmlConfirmados = '';
+                        // Mostrar últimos 10, más recientes primero
+                        confirmados.slice(-10).reverse().forEach(function(p) {
+                            htmlConfirmados += '<div class="flex justify-between items-center p-4 border-l-4 border-green-400 bg-green-50 rounded-lg">' +
+                                             '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
+                                             '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
+                                             '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
+                                             '<div class="flex items-center gap-2 mt-2">' +
+                                             '<span class="px-2 py-1 rounded text-sm bg-green-100 text-green-800">✅ CONFIRMADO</span>' +
+                                             '</div></div></div>';
+                        });
+                        containerConfirmados.innerHTML = htmlConfirmados;
+                    }
+                })
+                .catch(function() {
+                    document.getElementById('pedidosPendientes').innerHTML = '<div class="text-center text-red-500">Error cargando pedidos pendientes</div>';
+                    document.getElementById('pedidosConfirmados').innerHTML = '<div class="text-center text-red-500">Error cargando pedidos confirmados</div>';
+                });
+        }
+
+        cargarDatos();
+        setInterval(cargarDatos, 10000);
+    </script>
+</body>
+</html>`;
+  
+  res.send(html);
+});
+
+// Iniciar servidor
+app.listen(PORT, async () => {
+  console.log('🚀 Servidor corriendo en puerto ' + PORT);
+  console.log('🌐 Dashboard: http://localhost:' + PORT);
+  
+  // Verificar Google Sheets al iniciar
+  await verificarGoogleSheets();
+  
+  // Configurar webhook después de un delay
+  setTimeout(configurarWebhook, 5000);
+});
                 <div class="text-center text-gray-500">Cargando...</div>
             </div>
         </div>
