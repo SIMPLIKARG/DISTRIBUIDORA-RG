@@ -874,36 +874,42 @@ app.get('/', (req, res) => {
                 if (pedidos.length === 0) {
                     pedidosContainer.innerHTML = '<div class="text-center text-gray-500">No hay pedidos</div>';
                 } else {
-                    pedidosContainer.innerHTML = pedidos.slice(-10).reverse().map(pedido => \`
-                        <div class="flex justify-between items-center p-4 border rounded-lg">
-                            <div>
-                                <h3 class="font-semibold">\${pedido.pedido_id} - \${pedido.cliente_nombre}</h3>
-                                <p class="text-gray-600">\${pedido.fecha_hora} - \${pedido.items_cantidad || 0} items</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="font-bold">$\${parseInt(pedido.total || 0).toLocaleString()}</p>
-                                <div class="flex items-center gap-2 mt-1">
-                                    <span class="px-2 py-1 rounded text-sm \${
-                                        pedido.estado === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 
-                                        pedido.estado === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' : 
-                                        'bg-red-100 text-red-800'
-                                    }">
-                                        \${pedido.estado}
-                                    </span>
-                                    \${pedido.estado === 'PENDIENTE' ? 
-                                        \`<button onclick="cambiarEstado('\${pedido.pedido_id}', 'CONFIRMADO')" 
-                                                class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">
-                                            ✓ Confirmar
-                                        </button>
-                                        <button onclick="cambiarEstado('\${pedido.pedido_id}', 'CANCELADO')" 
-                                                class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">
-                                            ✗ Cancelar
-                                        </button>\` : ''
-                                    }
-                                </div>
-                            </div>
-                        </div>`).join('');
-                }
+                    pedidosContainer.innerHTML = pedidos.slice(-10).reverse().map(function(pedido) {
+                        var estadoClass = '';
+                        if (pedido.estado === 'CONFIRMADO') {
+                            estadoClass = 'bg-green-100 text-green-800';
+                        } else if (pedido.estado === 'PENDIENTE') {
+                            estadoClass = 'bg-yellow-100 text-yellow-800';
+                        } else {
+                            estadoClass = 'bg-red-100 text-red-800';
+                        }
+                        
+                        var botones = '';
+                        if (pedido.estado === 'PENDIENTE') {
+                            botones = '<button onclick="cambiarEstado(\'' + pedido.pedido_id + '\', \'CONFIRMADO\')" ' +
+                                     'class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">' +
+                                     '✓ Confirmar</button>' +
+                                     '<button onclick="cambiarEstado(\'' + pedido.pedido_id + '\', \'CANCELADO\')" ' +
+                                     'class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">' +
+                                     '✗ Cancelar</button>';
+                        }
+                        
+                        return '<div class="flex justify-between items-center p-4 border rounded-lg">' +
+                               '<div>' +
+                               '<h3 class="font-semibold">' + pedido.pedido_id + ' - ' + pedido.cliente_nombre + '</h3>' +
+                               '<p class="text-gray-600">' + pedido.fecha_hora + ' - ' + (pedido.items_cantidad || 0) + ' items</p>' +
+                               '</div>' +
+                               '<div class="text-right">' +
+                               '<p class="font-bold">$' + parseInt(pedido.total || 0).toLocaleString() + '</p>' +
+                               '<div class="flex items-center gap-2 mt-1">' +
+                               '<span class="px-2 py-1 rounded text-sm ' + estadoClass + '">' +
+                               pedido.estado +
+                               '</span>' +
+                               botones +
+                               '</div>' +
+                               '</div>' +
+                               '</div>';
+                    }).join('');
                 
             } catch (error) {
                 console.error('Error cargando datos:', error);
