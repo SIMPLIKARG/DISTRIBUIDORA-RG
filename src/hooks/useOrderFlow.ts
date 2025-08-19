@@ -1,18 +1,7 @@
 import { useState, useCallback } from 'react';
-import { Message } from '../types';
 
-type OrderStep = 
-  | 'inicio'
-  | 'menu_principal'
-  | 'seleccion_cliente'
-  | 'ingreso_nuevo_cliente'
-  | 'seleccion_categoria'
-  | 'seleccion_producto'
-  | 'ingreso_cantidad'
-  | 'carrito';
-
-interface OrderState {
-  step: OrderStep;
+export interface OrderFlowState {
+  step: string;
   pedidoId: string | null;
   clienteSeleccionado: any | null;
   categoriaSeleccionada: any | null;
@@ -21,9 +10,15 @@ interface OrderState {
   total: number;
 }
 
-export const useOrderFlow = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [orderState, setOrderState] = useState<OrderState>({
+export interface UseOrderFlowReturn {
+  orderState: OrderFlowState;
+  messages: Array<{ text: string; isUser: boolean; timestamp: Date }>;
+  handleUserMessage: (message: string) => void;
+  resetFlow: () => void;
+}
+
+export const useOrderFlow = (): UseOrderFlowReturn => {
+  const [orderState, setOrderState] = useState<OrderFlowState>({
     step: 'inicio',
     pedidoId: null,
     clienteSeleccionado: null,
@@ -33,211 +28,137 @@ export const useOrderFlow = () => {
     total: 0
   });
 
-  const addMessage = useCallback((message: Omit<Message, 'timestamp'>) => {
-    setMessages(prev => [...prev, { ...message, timestamp: Date.now() }]);
+  const [messages, setMessages] = useState<Array<{ text: string; isUser: boolean; timestamp: Date }>>([
+    {
+      text: '¡Hola! 👋 Soy tu asistente para pedidos. Escribe "crear pedido" para comenzar.',
+      isUser: false,
+      timestamp: new Date()
+    }
+  ]);
+
+  const addMessage = useCallback((text: string, isUser: boolean) => {
+    setMessages(prev => [...prev, { text, isUser, timestamp: new Date() }]);
   }, []);
 
-  const handleUserInput = useCallback((input: string) => {
-    // Agregar mensaje del usuario
-    addMessage({
-      type: 'user',
-      text: input
-    });
-
-    // Procesar input según el paso actual
-    const normalizedInput = input.toLowerCase().trim();
-
-    switch (orderState.step) {
-      case 'inicio':
-        if (normalizedInput === '/start' || normalizedInput === 'start') {
-          addMessage({
-            type: 'bot',
-            text: '¡Hola! 👋\n\nSoy tu asistente para pedidos de la distribuidora.\n\n¿Qué querés hacer?',
-            buttons: ['🛒 Crear Pedido', '📋 Ver Ayuda']
-          });
-          setOrderState(prev => ({ ...prev, step: 'menu_principal' }));
-        } else {
-          addMessage({
-            type: 'bot',
-            text: 'No entendí ese comando. Escribe /start para comenzar.',
-            buttons: ['/start']
-          });
-        }
-        break;
-
-      case 'menu_principal':
-        if (normalizedInput === '🛒 crear pedido') {
-          addMessage({
-            type: 'bot',
-            text: '👥 Seleccionar Cliente\n\nElegí un cliente existente:',
-            options: ['Juan Pérez', 'María González', 'Carlos Rodríguez', '➕ Agregar Cliente Nuevo']
-          });
-          setOrderState(prev => ({ ...prev, step: 'seleccion_cliente' }));
-        } else if (normalizedInput === '📋 ver ayuda') {
-          addMessage({
-            type: 'bot',
-            text: '🤖 Comandos disponibles:\n\n🛒 Crear Pedido - Iniciar nuevo pedido\n📋 Ver Ayuda - Esta ayuda\n\n¿Cómo funciona?\n1️⃣ Selecciona un cliente\n2️⃣ Elige una categoría\n3️⃣ Agrega productos\n4️⃣ Confirma tu pedido',
-            buttons: ['🛒 Crear Pedido', '🔙 Volver']
-          });
-        }
-        break;
-
-      case 'seleccion_cliente':
-        if (normalizedInput === '➕ agregar cliente nuevo') {
-          addMessage({
-            type: 'bot',
-            text: '👤 Agregar Cliente Nuevo\n\nEscribe el nombre completo del nuevo cliente:'
-          });
-          setOrderState(prev => ({ ...prev, step: 'ingreso_nuevo_cliente' }));
-        } else {
-          // Simular selección de cliente
-          const cliente = { id: 1, nombre: input };
-          setOrderState(prev => ({ 
-            ...prev, 
-            clienteSeleccionado: cliente,
-            step: 'seleccion_categoria'
-          }));
-          addMessage({
-            type: 'bot',
-            text: `✅ Cliente seleccionado: ${input}\n\nAhora elige una categoría:`,
-            options: ['Galletitas', 'Bebidas', 'Lácteos', 'Panadería', 'Conservas']
-          });
-        }
-        break;
-
-      case 'ingreso_nuevo_cliente':
-        if (input.trim().length >= 2) {
-          const nuevoCliente = { id: Date.now(), nombre: input.trim() };
-          setOrderState(prev => ({ 
-            ...prev, 
-            clienteSeleccionado: nuevoCliente,
-            step: 'seleccion_categoria'
-          }));
-          addMessage({
-            type: 'bot',
-            text: `✅ Cliente creado: ${input.trim()}\n\nAhora elige una categoría:`,
-            options: ['Galletitas', 'Bebidas', 'Lácteos', 'Panadería', 'Conservas']
-          });
-        } else {
-          addMessage({
-            type: 'bot',
-            text: '❌ El nombre debe tener al menos 2 caracteres. Intentá de nuevo:'
-          });
-        }
-        break;
-
-      case 'seleccion_categoria':
-        const categoria = { id: 1, nombre: input };
-        setOrderState(prev => ({ 
-          ...prev, 
-          categoriaSeleccionada: categoria,
-          step: 'seleccion_producto'
-        }));
-        addMessage({
-          type: 'bot',
-          text: `📦 ${input}\n\nElegí un producto:`,
-          options: ['Oreo Original 117g - $450', 'Pepitos Chocolate 100g - $380', 'Tita Vainilla 168g - $320']
-        });
-        break;
-
-      case 'seleccion_producto':
-        const producto = { 
-          id: 1, 
-          nombre: input.split(' - $')[0], 
-          precio: parseInt(input.split('$')[1]) || 450 
-        };
-        setOrderState(prev => ({ 
-          ...prev, 
-          productoSeleccionado: producto,
-          step: 'ingreso_cantidad'
-        }));
-        addMessage({
-          type: 'bot',
-          text: `🛒 ${producto.nombre}\n💰 Precio: $${producto.precio}\n\n¿Qué cantidad querés agregar?`,
-          buttons: ['1', '2', '3', '4', '5']
-        });
-        break;
-
-      case 'ingreso_cantidad':
-        const cantidad = parseFloat(input);
-        if (!isNaN(cantidad) && cantidad > 0 && orderState.productoSeleccionado) {
-          const importe = cantidad * orderState.productoSeleccionado.precio;
-          const nuevoItem = {
-            producto: orderState.productoSeleccionado,
-            cantidad,
-            importe
-          };
+  const handleUserMessage = useCallback((message: string) => {
+    addMessage(message, true);
+    
+    // Simular respuesta del bot
+    setTimeout(() => {
+      let response = '';
+      
+      switch (orderState.step) {
+        case 'inicio':
+          if (message.toLowerCase().includes('crear pedido')) {
+            response = '👥 Perfecto! Primero necesito que selecciones un cliente. ¿Cuál es el nombre del cliente?';
+            setOrderState(prev => ({ ...prev, step: 'seleccion_cliente' }));
+          } else {
+            response = 'Para comenzar, escribe "crear pedido" 😊';
+          }
+          break;
           
-          const nuevoCarrito = [...orderState.carrito, nuevoItem];
-          const nuevoTotal = nuevoCarrito.reduce((sum, item) => sum + item.importe, 0);
+        case 'seleccion_cliente':
+          response = `✅ Cliente "${message}" seleccionado. Ahora elige una categoría de productos:
+          
+1. Galletitas
+2. Bebidas  
+3. Lácteos
+4. Panadería
+5. Conservas`;
+          setOrderState(prev => ({ 
+            ...prev, 
+            step: 'seleccion_categoria',
+            clienteSeleccionado: { nombre: message }
+          }));
+          break;
+          
+        case 'seleccion_categoria':
+          response = `📦 Categoría "${message}" seleccionada. Aquí tienes algunos productos disponibles:
+
+• Producto ejemplo 1 - $350
+• Producto ejemplo 2 - $280
+• Producto ejemplo 3 - $420
+
+¿Cuál te interesa?`;
+          setOrderState(prev => ({ 
+            ...prev, 
+            step: 'seleccion_producto',
+            categoriaSeleccionada: { nombre: message }
+          }));
+          break;
+          
+        case 'seleccion_producto':
+          response = `🛒 Producto "${message}" seleccionado. ¿Qué cantidad necesitas?`;
+          setOrderState(prev => ({ 
+            ...prev, 
+            step: 'cantidad',
+            productoSeleccionado: { nombre: message, precio: 350 }
+          }));
+          break;
+          
+        case 'cantidad':
+          const cantidad = parseFloat(message) || 1;
+          const precio = orderState.productoSeleccionado?.precio || 350;
+          const importe = cantidad * precio;
+          
+          response = `✅ Agregado: ${cantidad} × ${orderState.productoSeleccionado?.nombre} = $${importe.toLocaleString()}
+
+¿Quieres agregar más productos? (sí/no)`;
           
           setOrderState(prev => ({ 
             ...prev, 
-            carrito: nuevoCarrito,
-            total: nuevoTotal,
-            step: 'carrito'
+            step: 'continuar',
+            carrito: [...prev.carrito, {
+              producto: prev.productoSeleccionado?.nombre,
+              cantidad,
+              precio,
+              importe
+            }],
+            total: prev.total + importe
           }));
+          break;
           
-          addMessage({
-            type: 'bot',
-            text: `✅ Agregado al carrito:\n${cantidad} × ${orderState.productoSeleccionado.nombre} = $${importe}\n\n💰 Total parcial: $${nuevoTotal}\n\n¿Qué querés hacer?`,
-            buttons: ['➕ Agregar Más', '👀 Ver Carrito', '✅ Finalizar Pedido']
-          });
-        } else {
-          addMessage({
-            type: 'bot',
-            text: '❌ Por favor ingresá un número mayor a 0.',
-            buttons: ['1', '2', '3', '4', '5']
-          });
-        }
-        break;
+        case 'continuar':
+          if (message.toLowerCase().includes('no')) {
+            response = `📋 ¡Pedido completado!
 
-      case 'carrito':
-        if (normalizedInput === '➕ agregar más') {
-          addMessage({
-            type: 'bot',
-            text: 'Elegí una categoría para agregar más productos:',
-            options: ['Galletitas', 'Bebidas', 'Lácteos', 'Panadería', 'Conservas']
-          });
-          setOrderState(prev => ({ ...prev, step: 'seleccion_categoria' }));
-        } else if (normalizedInput === '👀 ver carrito') {
-          const carritoTexto = orderState.carrito.map((item, index) => 
-            `${index + 1}. ${item.cantidad} × ${item.producto.nombre} = $${item.importe}`
-          ).join('\n');
+Cliente: ${orderState.clienteSeleccionado?.nombre}
+Total: $${orderState.total.toLocaleString()}
+
+Tu pedido ha sido enviado y está pendiente de confirmación. ¡Gracias! 🎉
+
+Para crear otro pedido, escribe "crear pedido".`;
+            
+            setOrderState({
+              step: 'inicio',
+              pedidoId: null,
+              clienteSeleccionado: null,
+              categoriaSeleccionada: null,
+              productoSeleccionado: null,
+              carrito: [],
+              total: 0
+            });
+          } else {
+            response = 'Elige otra categoría de productos:
+
+1. Galletitas
+2. Bebidas  
+3. Lácteos
+4. Panadería
+5. Conservas';
+            setOrderState(prev => ({ ...prev, step: 'seleccion_categoria' }));
+          }
+          break;
           
-          addMessage({
-            type: 'bot',
-            text: `🛒 Tu carrito:\n\n${carritoTexto}\n\n💰 Total: $${orderState.total}`,
-            buttons: ['➕ Agregar Más', '✅ Finalizar Pedido']
-          });
-        } else if (normalizedInput === '✅ finalizar pedido') {
-          const carritoTexto = orderState.carrito.map((item, index) => 
-            `${index + 1}. ${item.cantidad} × ${item.producto.nombre} = $${item.importe}`
-          ).join('\n');
-          
-          addMessage({
-            type: 'bot',
-            text: `📋 ¡Pedido Enviado!\n\n👤 Cliente: ${orderState.clienteSeleccionado?.nombre}\n📦 Productos:\n${carritoTexto}\n\n💰 Total: $${orderState.total}\n\n⏳ Tu pedido está PENDIENTE de confirmación.\n\n¡Gracias!`,
-            buttons: ['🛒 Nuevo Pedido']
-          });
-          
-          // Resetear estado
-          setOrderState({
-            step: 'menu_principal',
-            pedidoId: null,
-            clienteSeleccionado: null,
-            categoriaSeleccionada: null,
-            productoSeleccionado: null,
-            carrito: [],
-            total: 0
-          });
-        }
-        break;
-    }
+        default:
+          response = 'No entendí. Escribe "crear pedido" para comenzar.';
+      }
+      
+      addMessage(response, false);
+    }, 1000);
   }, [orderState, addMessage]);
 
   const resetFlow = useCallback(() => {
-    setMessages([]);
     setOrderState({
       step: 'inicio',
       pedidoId: null,
@@ -247,12 +168,17 @@ export const useOrderFlow = () => {
       carrito: [],
       total: 0
     });
+    setMessages([{
+      text: '¡Hola! 👋 Soy tu asistente para pedidos. Escribe "crear pedido" para comenzar.',
+      isUser: false,
+      timestamp: new Date()
+    }]);
   }, []);
 
   return {
+    orderState,
     messages,
-    currentStep: orderState.step,
-    handleUserInput,
+    handleUserMessage,
     resetFlow
   };
 };

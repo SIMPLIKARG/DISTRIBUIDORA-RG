@@ -3,7 +3,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleAuth } from 'google-auth-library';
-import { google } from 'googleapis';
+import { google, sheets_v4 } from 'googleapis';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,8 +19,8 @@ app.use(express.json());
 app.use(express.static('dist'));
 
 // Configuración de Google Sheets
-let sheets = null;
-let SPREADSHEET_ID = null;
+let sheets: sheets_v4.Sheets | null = null;
+let SPREADSHEET_ID: string | null = null;
 
 // Inicializar Google Sheets si las credenciales están disponibles
 if (process.env.GOOGLE_SHEETS_ID && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
@@ -37,7 +37,11 @@ if (process.env.GOOGLE_SHEETS_ID && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && 
     SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID;
     console.log('✅ Google Sheets configurado correctamente');
   } catch (error) {
-    console.error('❌ Error configurando Google Sheets:', error.message);
+    if (error instanceof Error) {
+      console.error('❌ Error configurando Google Sheets:', error.message);
+    } else {
+      console.error('❌ Error configurando Google Sheets:', error);
+    }
   }
 } else {
   console.log('⚠️  Google Sheets no configurado - usando datos en memoria');
@@ -125,7 +129,11 @@ async function getDataFromSheet(sheetName) {
     console.log(`✅ Obtenidos ${data.length} registros de ${sheetName}`);
     return data;
   } catch (error) {
-    console.error(`❌ Error obteniendo datos de ${sheetName}:`, error.message);
+    if (error instanceof Error) {
+      console.error(`❌ Error obteniendo datos de ${sheetName}:`, error.message);
+    } else {
+      console.error(`❌ Error obteniendo datos de ${sheetName}:`, error);
+    }
     // Fallback a datos en memoria
     switch (sheetName) {
       case 'Clientes': return clientesMemoria;
@@ -164,7 +172,11 @@ async function appendToSheet(sheetName, data) {
     });
     console.log(`✅ Datos guardados en ${sheetName}`);
   } catch (error) {
-    console.error(`❌ Error guardando en ${sheetName}:`, error.message);
+    if (error instanceof Error) {
+      console.error(`❌ Error guardando en ${sheetName}:`, error.message);
+    } else {
+      console.error(`❌ Error guardando en ${sheetName}:`, error);
+    }
     // Fallback a memoria
     switch (sheetName) {
       case 'Pedidos':
@@ -236,7 +248,11 @@ async function saveNewClient(clientData) {
     console.log('✅ Cliente nuevo guardado:', newClient);
     return newClient;
   } catch (error) {
-    console.error('❌ Error guardando cliente:', error);
+    if (error instanceof Error) {
+      console.error('❌ Error guardando cliente:', error.message);
+    } else {
+      console.error('❌ Error guardando cliente:', error);
+    }
     throw error;
   }
 }
@@ -269,7 +285,11 @@ async function sendTelegramMessage(chatId, text, options = {}) {
       console.log('✅ Mensaje enviado a', chatId);
     }
   } catch (error) {
-    console.error('❌ Error en sendTelegramMessage:', error);
+    if (error instanceof Error) {
+      console.error('❌ Error en sendTelegramMessage:', error.message);
+    } else {
+      console.error('❌ Error en sendTelegramMessage:', error);
+    }
   }
 }
 
@@ -641,7 +661,11 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
         break;
     }
   } catch (error) {
-    console.error('❌ Error en handleBotMessage:', error);
+    if (error instanceof Error) {
+      console.error('❌ Error en handleBotMessage:', error.message);
+    } else {
+      console.error('❌ Error en handleBotMessage:', error);
+    }
     await sendTelegramMessage(chatId, 
       'Ocurrió un error. Por favor intenta nuevamente escribiendo /start'
     );
@@ -674,7 +698,11 @@ async function mostrarMenuClientes(chatId) {
       { reply_markup: keyboard }
     );
   } catch (error) {
-    console.error('Error mostrando menú clientes:', error);
+    if (error instanceof Error) {
+      console.error('Error mostrando menú clientes:', error.message);
+    } else {
+      console.error('Error mostrando menú clientes:', error);
+    }
     await sendTelegramMessage(chatId, 'Error cargando clientes. Intentá de nuevo.');
   }
 }
@@ -691,7 +719,11 @@ async function mostrarMenuCategorias(chatId) {
       { reply_markup: keyboard }
     );
   } catch (error) {
-    console.error('Error mostrando menú categorías:', error);
+    if (error instanceof Error) {
+      console.error('Error mostrando menú categorías:', error.message);
+    } else {
+      console.error('Error mostrando menú categorías:', error);
+    }
     await sendTelegramMessage(chatId, 'Error cargando categorías. Intentá de nuevo.');
   }
 }
@@ -714,7 +746,11 @@ async function mostrarMenuProductos(chatId, categoriaId) {
       { reply_markup: keyboard }
     );
   } catch (error) {
-    console.error('Error mostrando menú productos:', error);
+    if (error instanceof Error) {
+      console.error('Error mostrando menú productos:', error.message);
+    } else {
+      console.error('Error mostrando menú productos:', error);
+    }
     await sendTelegramMessage(chatId, 'Error cargando productos. Intentá de nuevo.');
   }
 }
@@ -740,7 +776,11 @@ async function handleCallbackQuery(callbackQuery) {
         })
       });
     } catch (error) {
-      console.error('Error respondiendo callback:', error);
+      if (error instanceof Error) {
+        console.error('Error respondiendo callback:', error.message);
+      } else {
+        console.error('Error respondiendo callback:', error);
+      }
     }
   }
   
@@ -845,7 +885,7 @@ app.get('/api/test/sheets', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       status: 'ERROR',
-      message: error.message
+      message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -872,7 +912,11 @@ app.post('/webhook', async (req, res) => {
 
     res.status(200).json({ ok: true });
   } catch (error) {
-    console.error('❌ Error en webhook:', error);
+    if (error instanceof Error) {
+      console.error('❌ Error en webhook:', error.message);
+    } else {
+      console.error('❌ Error en webhook:', error);
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -920,7 +964,11 @@ async function setupWebhook() {
       console.error('❌ Error configurando webhook:', result);
     }
   } catch (error) {
-    console.error('❌ Error en setupWebhook:', error);
+    if (error instanceof Error) {
+      console.error('❌ Error en setupWebhook:', error.message);
+    } else {
+      console.error('❌ Error en setupWebhook:', error);
+    }
   }
 }
 
@@ -976,10 +1024,14 @@ app.post('/api/setup-webhook', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error en setupWebhook:', error);
+    if (error instanceof Error) {
+      console.error('❌ Error en setupWebhook:', error.message);
+    } else {
+      console.error('❌ Error en setupWebhook:', error);
+    }
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -1007,7 +1059,7 @@ app.get('/api/webhook-info', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
@@ -1018,7 +1070,7 @@ app.get('*', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log('🚀 ========================================');
   console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
   console.log('🚀 ========================================');
