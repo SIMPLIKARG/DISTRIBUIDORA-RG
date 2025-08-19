@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, BarChart3, Package, Users } from 'lucide-react';
+import { Bot, BarChart3, Package, Users, ShoppingCart } from 'lucide-react';
 import TelegramBot from './components/TelegramBot';
 import Dashboard from './components/Dashboard';
 import GestionPedidos from './components/GestionPedidos';
@@ -9,12 +9,12 @@ import GestionClientes from './components/GestionClientes';
 type Vista = 'bot' | 'dashboard' | 'pedidos' | 'productos' | 'clientes';
 
 function App() {
-  const [vistaActiva, setVistaActiva] = useState<Vista>('bot');
+  const [vistaActiva, setVistaActiva] = useState<Vista>('dashboard');
 
   const navegacion = [
-    { id: 'bot' as Vista, nombre: 'Bot Telegram', icono: Bot },
     { id: 'dashboard' as Vista, nombre: 'Dashboard', icono: BarChart3 },
-    { id: 'pedidos' as Vista, nombre: 'Pedidos', icono: Package },
+    { id: 'bot' as Vista, nombre: 'Bot Telegram', icono: Bot },
+    { id: 'pedidos' as Vista, nombre: 'Pedidos', icono: ShoppingCart },
     { id: 'productos' as Vista, nombre: 'Productos', icono: Package },
     { id: 'clientes' as Vista, nombre: 'Clientes', icono: Users },
   ];
@@ -32,7 +32,7 @@ function App() {
       case 'clientes':
         return <GestionClientes />;
       default:
-        return <TelegramBot />;
+        return <Dashboard />;
     }
   };
 
@@ -43,16 +43,22 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <Bot className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
-                  Distribuidora Bot
+                  Sistema Distribuidora
                 </h1>
                 <p className="text-sm text-gray-500">
-                  Sistema de gestión de pedidos
+                  Gestión completa de pedidos y productos
                 </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="hidden md:flex items-center space-x-2 text-sm text-gray-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span>Sistema Activo</span>
               </div>
             </div>
           </div>

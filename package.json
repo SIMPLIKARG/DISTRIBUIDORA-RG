@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "build:client": "vite build", 
+    "build:client": "vite build",
     "build:server": "tsc",
     "preview": "vite preview",
     "start": "node dist/server.js",
+    "postinstall": "npm run build",
     "railway:setup": "node scripts/railway-setup.js",
     "railway:health": "curl $RAILWAY_STATIC_URL/health",
     "railway:logs": "railway logs --follow"
