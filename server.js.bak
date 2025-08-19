@@ -12,12 +12,12 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '8080', 10);
 
 // Middleware
-const corsOrigins = [
+const corsOrigins: (string | RegExp)[] = [
   'http://localhost:5173',
   'http://localhost:3000',
   /^https:\/\/.*\.railway\.app$/,
   /^https:\/\/.*\.vercel\.app$/
-].filter((origin) => origin !== undefined);
+].filter((origin): origin is string | RegExp => origin !== undefined);
 
 app.use(cors({
   origin: corsOrigins,
@@ -29,8 +29,8 @@ app.use(express.json());
 app.use(express.static('dist'));
 
 // Configuración de Google Sheets
-let sheets = null;
-let SPREADSHEET_ID = null;
+let sheets: sheets_v4.Sheets | null = null;
+let SPREADSHEET_ID: string | null = null;
 
 // Inicializar Google Sheets si las credenciales están disponibles
 if (process.env.GOOGLE_SHEETS_ID && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
@@ -59,42 +59,42 @@ if (process.env.GOOGLE_SHEETS_ID && process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && 
 
 // Tipos para datos en memoria
 interface ClienteMemoria {
-  cliente_id;
-  nombre;
+  cliente_id: number;
+  nombre: string;
 }
 
 interface CategoriaMemoria {
-  categoria_id;
-  categoria_nombre;
+  categoria_id: number;
+  categoria_nombre: string;
 }
 
 interface ProductoMemoria {
-  producto_id;
-  categoria_id;
-  producto_nombre;
-  precio;
-  activo;
+  producto_id: number;
+  categoria_id: number;
+  producto_nombre: string;
+  precio: number;
+  activo: string;
 }
 
 interface PedidoMemoria {
-  pedido_id;
-  fecha_hora;
-  cliente_id;
-  cliente_nombre;
-  items_cantidad;
-  total;
-  estado;
+  pedido_id: string;
+  fecha_hora: string;
+  cliente_id: number;
+  cliente_nombre: string;
+  items_cantidad: number;
+  total: number;
+  estado: string;
 }
 
 interface DetallePedidoMemoria {
-  detalle_id;
-  pedido_id;
-  producto_id;
-  producto_nombre;
-  categoria_id;
-  cantidad;
-  precio_unitario;
-  importe;
+  detalle_id: string;
+  pedido_id: string;
+  producto_id: number;
+  producto_nombre: string;
+  categoria_id: number;
+  cantidad: number;
+  precio_unitario: number;
+  importe: number;
 }
 
 // Datos en memoria (fallback si no hay Google Sheets)
@@ -136,7 +136,7 @@ let pedidosMemoria: PedidoMemoria[] = [];
 let detallePedidosMemoria: DetallePedidoMemoria[] = [];
 
 // Funciones para Google Sheets
-async function getDataFromSheet(sheetName): Promise<Record<string, string | number>[]> {
+async function getDataFromSheet(sheetName: string): Promise<Record<string, string | number>[]> {
   if (!sheets || !SPREADSHEET_ID) {
     console.log(`⚠️  Usando datos en memoria para ${sheetName}`);
     switch (sheetName) {
@@ -159,8 +159,8 @@ async function getDataFromSheet(sheetName): Promise<Record<string, string | numb
     if (rows.length === 0) return [];
 
     const headers = rows[0];
-    const data = rows.slice(1).map((row) => {
-      const obj = {};
+    const data = rows.slice(1).map((row: string[]) => {
+      const obj: Record<string, string | number> = {};
       headers.forEach((header, index) => {
         let value = row[index] || '';
         
@@ -196,7 +196,7 @@ async function getDataFromSheet(sheetName): Promise<Record<string, string | numb
   }
 }
 
-async function appendToSheet(sheetName, data: Record<string, string | number>): Promise<void> {
+async function appendToSheet(sheetName: string, data: Record<string, string | number>): Promise<void> {
   if (!sheets || !SPREADSHEET_ID) {
     console.log(`⚠️  Guardando en memoria: ${sheetName}`);
     switch (sheetName) {
@@ -309,7 +309,7 @@ app.get('/api/detalle-pedidos', async (req, res) => {
 app.put('/api/pedidos/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { estado }: { estado} = req.body;
+    const { estado }: { estado: string } = req.body;
     
     // En memoria, actualizar el pedido
     const pedidoIndex = pedidosMemoria.findIndex(p => p.pedido_id === id);
