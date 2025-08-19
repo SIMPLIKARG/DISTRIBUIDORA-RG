@@ -153,38 +153,71 @@ async function escribirSheet(nombreHoja, datos) {
 
 // API Routes
 app.get('/api/clientes', async (req, res) => {
-  const clientes = await leerSheet('Clientes');
-  res.json(clientes);
+  try {
+    const clientes = await leerSheet('Clientes');
+    res.json(clientes);
+  } catch (error) {
+    console.error('Error obteniendo clientes:', error);
+    res.status(500).json({ error: 'Error obteniendo clientes', details: error.message });
+  }
 });
 
 app.get('/api/categorias', async (req, res) => {
-  const categorias = await leerSheet('Categorias');
-  res.json(categorias);
+  try {
+    const categorias = await leerSheet('Categorias');
+    res.json(categorias);
+  } catch (error) {
+    console.error('Error obteniendo categorias:', error);
+    res.status(500).json({ error: 'Error obteniendo categorias', details: error.message });
+  }
 });
 
 app.get('/api/productos', async (req, res) => {
-  const productos = await leerSheet('Productos');
-  res.json(productos);
+  try {
+    const productos = await leerSheet('Productos');
+    res.json(productos);
+  } catch (error) {
+    console.error('Error obteniendo productos:', error);
+    res.status(500).json({ error: 'Error obteniendo productos', details: error.message });
+  }
 });
 
 app.get('/api/pedidos', async (req, res) => {
-  const pedidos = await leerSheet('Pedidos');
-  res.json(pedidos);
+  try {
+    let pedidos = await leerSheet('Pedidos');
+    if (pedidosEnMemoria.length > 0) {
+      pedidos = [...pedidos, ...pedidosEnMemoria];
+    }
+    res.json(pedidos);
+  } catch (error) {
+    console.error('Error obteniendo pedidos:', error);
+    res.status(500).json({ error: 'Error obteniendo pedidos', details: error.message });
+  }
 });
 
 app.get('/api/stats', async (req, res) => {
-  const clientes = await leerSheet('Clientes');
-  const productos = await leerSheet('Productos');
-  const pedidos = await leerSheet('Pedidos');
-  
-  const stats = {
-    totalClientes: clientes.length,
-    totalProductos: productos.length,
-    totalPedidos: pedidos.length,
-    ventasTotal: pedidos.reduce((sum, p) => sum + (parseInt(p.total) || 0), 0)
-  };
-  
-  res.json(stats);
+  try {
+    const clientes = await leerSheet('Clientes');
+    const productos = await leerSheet('Productos');
+    let pedidos = await leerSheet('Pedidos');
+    
+    // Combinar con pedidos en memoria
+    if (pedidosEnMemoria.length > 0) {
+      pedidos = [...pedidos, ...pedidosEnMemoria];
+    }
+    
+    const stats = {
+      totalClientes: clientes.length,
+      totalProductos: productos.length,
+      totalPedidos: pedidos.length,
+      ventasTotal: pedidos.reduce((sum, p) => sum + (parseInt(p.total) || 0), 0)
+    };
+    
+    res.json(stats);
+  } catch (error) {
+    console.error('Error obteniendo estadísticas:', error);
+    res.status(500).json({ error: 'Error obteniendo estadísticas', details: error.message });
+  }
 });
 
 // API para cambiar estado de pedido
@@ -802,23 +835,39 @@ app.get('/health', (req, res) => {
 // Test Google Sheets connection
 app.get('/test-sheets', async (req, res) => {
   try {
+    console.log('🧪 Testing Google Sheets connection...');
+    
     // Test reading from sheets
     const clientes = await leerSheet('Clientes');
     const productos = await leerSheet('Productos');
+    const categorias = await leerSheet('Categorias');
+    const pedidos = await leerSheet('Pedidos');
+    
+    console.log('✅ Test results:', {
+      clientes: clientes.length,
+      productos: productos.length,
+      categorias: categorias.length,
+      pedidos: pedidos.length
+    });
     
     res.json({
       connected: true,
       spreadsheetId: SPREADSHEET_ID,
       clientesCount: clientes.length,
       productosCount: productos.length,
+      categoriasCount: categorias.length,
+      pedidosCount: pedidos.length,
       message: 'Google Sheets funcionando correctamente'
     });
     
   } catch (error) {
+    console.error('❌ Google Sheets test failed:', error);
     res.json({
       connected: false,
       error: error.message,
-      solution: 'Verifica configuración de Google Sheets'
+      solution: 'Verifica configuración de Google Sheets',
+      spreadsheetId: SPREADSHEET_ID,
+      hasCredentials: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
     });
   }
 });
@@ -1024,95 +1073,127 @@ app.get('/', (req, res) => {
             }
         });
         
-        function cargarDatos() {
-            fetch('/health')
-                .then(function(r) { return r.json(); })
-                .then(function(h) {
-                    document.getElementById('sheets-status').textContent = h.sheets ? '✅' : '❌';
-                    document.getElementById('telegram-status').textContent = h.telegram ? '✅' : '❌';
-                    document.getElementById('server-status').textContent = h.status === 'OK' ? '✅' : '❌';
-                });
+        async function cargarDatos() {
+            console.log('🔄 Iniciando carga de datos...');
+            try {
+                // Health check
+                console.log('🏥 Verificando health check...');
+                const healthRes = await fetch('/health');
+                if (!healthRes.ok) {
+                    throw new Error(`Health check failed: ${healthRes.status}`);
+                }
+                const health = await healthRes.json();
+                console.log('✅ Health check OK:', health);
+                
+                document.getElementById('sheets-status').textContent = health.sheets ? '✅' : '❌';
+                document.getElementById('telegram-status').textContent = health.telegram ? '✅' : '❌';
+                document.getElementById('server-status').textContent = health.status === 'OK' ? '✅' : '❌';
 
-            fetch('/api/stats')
-                .then(function(r) { return r.json(); })
-                .then(function(s) {
-                    document.getElementById('totalClientes').textContent = s.totalClientes;
-                    document.getElementById('totalProductos').textContent = s.totalProductos;
-                    document.getElementById('totalPedidos').textContent = s.totalPedidos;
-                    document.getElementById('ventasTotal').textContent = '$' + s.ventasTotal.toLocaleString();
-                });
+                // Stats
+                console.log('📊 Cargando estadísticas...');
+                const statsRes = await fetch('/api/stats');
+                if (!statsRes.ok) {
+                    const errorText = await statsRes.text();
+                    throw new Error(`Stats failed (${statsRes.status}): ${errorText}`);
+                }
+                const stats = await statsRes.json();
+                console.log('✅ Estadísticas cargadas:', stats);
+                
+                document.getElementById('totalClientes').textContent = stats.totalClientes;
+                document.getElementById('totalProductos').textContent = stats.totalProductos;
+                document.getElementById('totalPedidos').textContent = stats.totalPedidos;
+                document.getElementById('ventasTotal').textContent = '$' + stats.ventasTotal.toLocaleString();
 
-            fetch('/api/pedidos')
-                .then(function(r) { return r.json(); })
-                .then(function(pedidos) {
-                    // Filtrar pedidos cancelados
-                    var pedidosActivos = pedidos.filter(function(p) {
-                        return p.estado !== 'CANCELADO';
+                // Pedidos
+                console.log('🛒 Cargando pedidos...');
+                const pedidosRes = await fetch('/api/pedidos');
+                if (!pedidosRes.ok) {
+                    const errorText = await pedidosRes.text();
+                    throw new Error(`Pedidos failed (${pedidosRes.status}): ${errorText}`);
+                }
+                const pedidos = await pedidosRes.json();
+                console.log('✅ Pedidos cargados:', pedidos.length, 'pedidos');
+                
+                // Filtrar pedidos cancelados
+                const pedidosActivos = pedidos.filter(p => p.estado !== 'CANCELADO');
+                
+                // Separar por estado
+                const pedidosPendientes = pedidosActivos.filter(p => p.estado === 'PENDIENTE');
+                const pedidosConfirmados = pedidosActivos.filter(p => p.estado === 'CONFIRMADO');
+                const cancelados = pedidos.filter(p => p.estado === 'CANCELADO');
+                
+                console.log(`📋 Pedidos filtrados: ${pedidosPendientes.length} pendientes, ${pedidosConfirmados.length} confirmados, ${cancelados.length} cancelados`);
+                
+                // Actualizar contador de cancelados
+                document.getElementById('pedidosCancelados').textContent = cancelados.length;
+                
+                // Mostrar pedidos pendientes
+                const containerPendientes = document.getElementById('pedidosPendientes');
+                if (pedidosPendientes.length === 0) {
+                    containerPendientes.innerHTML = '<div class="text-center text-gray-500 py-8">🎉 No hay pedidos pendientes</div>';
+                } else {
+                    let htmlPendientes = '';
+                    // Mostrar más recientes primero
+                    pedidosPendientes.reverse().forEach(function(p) {
+                        htmlPendientes += '<div class="flex justify-between items-center p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg">' +
+                                       '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
+                                       '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
+                                       '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
+                                       '<div class="flex items-center gap-2 mt-2">' +
+                                       '<span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">⏳ PENDIENTE</span>' +
+                                       '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CONFIRMADO\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">✓ Confirmar</button>' +
+                                       '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CANCELADO\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">✗ Cancelar</button>' +
+                                       '</div></div></div>';
                     });
-                    
-                    // Separar por estado
-                    var pendientes = pedidosActivos.filter(function(p) {
-                        return p.estado === 'PENDIENTE';
+                    containerPendientes.innerHTML = htmlPendientes;
+                }
+                
+                // Mostrar pedidos confirmados (últimos 10)
+                const containerConfirmados = document.getElementById('pedidosConfirmados');
+                if (pedidosConfirmados.length === 0) {
+                    containerConfirmados.innerHTML = '<div class="text-center text-gray-500 py-8">📋 No hay pedidos confirmados</div>';
+                } else {
+                    let htmlConfirmados = '';
+                    // Mostrar últimos 10, más recientes primero
+                    pedidosConfirmados.slice(-10).reverse().forEach(function(p) {
+                        htmlConfirmados += '<div class="flex justify-between items-center p-4 border-l-4 border-green-400 bg-green-50 rounded-lg">' +
+                                         '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
+                                         '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
+                                         '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
+                                         '<div class="flex items-center gap-2 mt-2">' +
+                                         '<span class="px-2 py-1 rounded text-sm bg-green-100 text-green-800">✅ CONFIRMADO</span>' +
+                                         '</div></div></div>';
                     });
-                    
-                    var confirmados = pedidosActivos.filter(function(p) {
-                        return p.estado === 'CONFIRMADO';
-                    });
-                    
-                    // Contar cancelados para estadística
-                    var cancelados = pedidos.filter(function(p) {
-                        return p.estado === 'CANCELADO';
-                    });
-                    
-                    document.getElementById('pedidosCancelados').textContent = cancelados.length;
-                    
-                    // Mostrar pedidos pendientes
-                    var containerPendientes = document.getElementById('pedidosPendientes');
-                    if (pendientes.length === 0) {
-                        containerPendientes.innerHTML = '<div class="text-center text-gray-500 py-8">🎉 No hay pedidos pendientes</div>';
-                    } else {
-                        var htmlPendientes = '';
-                        // Mostrar más recientes primero
-                        pendientes.reverse().forEach(function(p) {
-                            htmlPendientes += '<div class="flex justify-between items-center p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg">' +
-                                           '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
-                                           '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
-                                           '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
-                                           '<div class="flex items-center gap-2 mt-2">' +
-                                           '<span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">⏳ PENDIENTE</span>' +
-                                           '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CONFIRMADO\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">✓ Confirmar</button>' +
-                                           '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CANCELADO\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">✗ Cancelar</button>' +
-                                           '</div></div></div>';
-                        });
-                        containerPendientes.innerHTML = htmlPendientes;
-                    }
-                    
-                    // Mostrar pedidos confirmados (últimos 10)
-                    var containerConfirmados = document.getElementById('pedidosConfirmados');
-                    if (confirmados.length === 0) {
-                        containerConfirmados.innerHTML = '<div class="text-center text-gray-500 py-8">📋 No hay pedidos confirmados</div>';
-                    } else {
-                        var htmlConfirmados = '';
-                        // Mostrar últimos 10, más recientes primero
-                        confirmados.slice(-10).reverse().forEach(function(p) {
-                            htmlConfirmados += '<div class="flex justify-between items-center p-4 border-l-4 border-green-400 bg-green-50 rounded-lg">' +
-                                             '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
-                                             '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
-                                             '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
-                                             '<div class="flex items-center gap-2 mt-2">' +
-                                             '<span class="px-2 py-1 rounded text-sm bg-green-100 text-green-800">✅ CONFIRMADO</span>' +
-                                             '</div></div></div>';
-                        });
-                        containerConfirmados.innerHTML = htmlConfirmados;
-                    }
-                })
-                .catch(function() {
-                    document.getElementById('pedidosPendientes').innerHTML = '<div class="text-center text-red-500">Error cargando pedidos pendientes</div>';
-                    document.getElementById('pedidosConfirmados').innerHTML = '<div class="text-center text-red-500">Error cargando pedidos confirmados</div>';
-                });
+                    containerConfirmados.innerHTML = htmlConfirmados;
+                }
+                
+            } catch (error) {
+                console.error('❌ Error cargando datos:', error);
+                
+                // Mostrar error específico en la interfaz
+                const errorMsg = `<div class="text-center text-red-500 p-4 border border-red-300 rounded">
+                    <h3 class="font-bold">Error cargando datos</h3>
+                    <p class="text-sm mt-2">${error.message}</p>
+                    <p class="text-xs mt-1 text-gray-600">Revisa la consola para más detalles</p>
+                </div>`;
+                
+                document.getElementById('pedidosPendientes').innerHTML = errorMsg;
+                document.getElementById('pedidosConfirmados').innerHTML = errorMsg;
+                
+                // También actualizar las estadísticas con error
+                document.getElementById('totalClientes').textContent = 'Error';
+                document.getElementById('totalProductos').textContent = 'Error';
+                document.getElementById('totalPedidos').textContent = 'Error';
+                document.getElementById('ventasTotal').textContent = 'Error';
+            }
         }
 
+        // Cargar al inicio
+        console.log('🚀 Iniciando dashboard...');
         cargarDatos();
+        
+        // Recargar cada 10 segundos
+        console.log('⏰ Configurando auto-refresh cada 10 segundos');
         setInterval(cargarDatos, 10000);
     </script>
 </body>
