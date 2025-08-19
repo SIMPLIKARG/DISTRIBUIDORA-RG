@@ -1018,7 +1018,7 @@ app.get('*', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log('🚀 ========================================');
   console.log(`🚀 Servidor iniciado en puerto ${PORT}`);
   console.log('🚀 ========================================');
