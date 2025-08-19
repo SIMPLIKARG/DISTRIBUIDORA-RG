@@ -1,20 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import dotenv from 'dotenv';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-// Cargar variables de entorno
-dotenv.config();
+// Cargar variables de entorno en desarrollo
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const RAILWAY_STATIC_URL = process.env.RAILWAY_STATIC_URL;
 
-// Para ES modules
-const __filename = fileURLToPath(import.meta.url);
+// Para CommonJS
 const __dirname = path.dirname(__filename);
 
 // Logging optimizado para Railway
