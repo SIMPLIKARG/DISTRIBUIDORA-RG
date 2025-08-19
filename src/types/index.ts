@@ -23,7 +23,7 @@ export interface Pedido {
   cliente_nombre: string;
   items_cantidad: number;
   total: number;
-  estado: 'BORRADOR' | 'CONFIRMADO';
+  estado: 'BORRADOR' | 'PENDIENTE' | 'CONFIRMADO' | 'CANCELADO';
 }
 
 export interface DetallePedido {

@@ -17,7 +17,7 @@ const SalesChart: React.FC<SalesChartProps> = ({ pedidos }) => {
   const salesByDay = last7Days.map(date => {
     const dayPedidos = pedidos.filter(p => {
       const pedidoDate = new Date(p.fecha_hora);
-      return pedidoDate.toDateString() === date.toDateString();
+      return pedidoDate.toDateString() === date.toDateString() && p.estado === 'CONFIRMADO';
     });
     
     const total = dayPedidos.reduce((sum, p) => sum + p.total, 0);
