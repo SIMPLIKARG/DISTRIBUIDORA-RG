@@ -5,15 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "build:client": "vite build",
-    "build:server": "tsc",
+    "build": "vite build",
     "preview": "vite preview",
-    "start": "node dist/server.js",
-    "postinstall": "npm run build",
-    "railway:setup": "node scripts/railway-setup.js",
-    "railway:health": "curl $RAILWAY_STATIC_URL/health",
-    "railway:logs": "railway logs --follow"
+    "start": "vite preview"
   },
   "dependencies": {
     "react": "^18.2.0",

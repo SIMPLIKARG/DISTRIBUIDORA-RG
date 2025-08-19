@@ -9,17 +9,15 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": false,
+    "noEmit": true,
     "jsx": "react-jsx",
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "declaration": false,
+    "declarationMap": false
   },
   "include": [
-    "src/**/*",
-    "scripts/**/*"
+    "src"
   ],
   "exclude": [
     "node_modules",
