@@ -16,7 +16,6 @@ export class GoogleSheetsService {
   // Métodos para interactuar con Google Sheets
   async getClientes() {
     // Implementar llamada a Google Sheets API
-    // return await fetch('https://sheets.googleapis.com/v4/spreadsheets/...')
     console.log('Obteniendo clientes desde Google Sheets...');
   }
 
