@@ -893,6 +893,26 @@ app.get('/', (req, res) => {
             <p class="text-red-700 text-sm">Los pedidos cancelados no se muestran en el dashboard pero se mantienen en Google Sheets para auditoría.</p>
             <p class="text-red-600 text-sm mt-1">Total cancelados: <span id="pedidosCancelados">-</span></p>
         </div>
+        
+        <!-- Modal para detalle del pedido -->
+        <div id="modalDetalle" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold" id="modalTitulo">Detalle del Pedido</h3>
+                            <button onclick="cerrarModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        <div id="modalContenido" class="space-y-4">
+                            <!-- Contenido del pedido se carga aquí -->
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-2">
+                            <button onclick="cerrarModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -1089,214 +1109,6 @@ app.get('/', (req, res) => {
 </body>
 </html>`;
   
-  res.send(html);
-});
-
-// Iniciar servidor
-app.listen(PORT, async () => {
-  console.log('🚀 Servidor corriendo en puerto ' + PORT);
-  console.log('🌐 Dashboard: http://localhost:' + PORT);
-  
-  // Verificar Google Sheets al iniciar
-  await verificarGoogleSheets();
-  
-  // Configurar webhook después de un delay
-  setTimeout(configurarWebhook, 5000);
-});
-                <div class="text-center text-gray-500">Cargando...</div>
-            </div>
-        </div>
-        
-        <!-- Modal para detalle del pedido -->
-        <div id="modalDetalle" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-            <div class="flex items-center justify-center min-h-screen p-4">
-                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
-                    <div class="p-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-xl font-bold" id="modalTitulo">Detalle del Pedido</h3>
-                            <button onclick="cerrarModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
-                        </div>
-                        <div id="modalContenido" class="space-y-4">
-                            <!-- Contenido del pedido se carga aquí -->
-                        </div>
-                        <div class="mt-6 flex justify-end space-x-2">
-                            <button onclick="cerrarModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Cerrar</button>
-                        </div>
-  `;
-  
-  res.send(html);
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function cambiarEstado(pedidoId, nuevoEstado) {
-            fetch('/api/pedidos/' + pedidoId + '/estado', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ estado: nuevoEstado })
-            })
-            .then(function(response) {
-                if (response.ok) {
-                    cargarDatos();
-                } else {
-                    alert('Error cambiando estado');
-                }
-            })
-            .catch(function(error) {
-                alert('Error de conexión');
-            });
-        }
-
-        function verDetallePedido(pedidoId) {
-            fetch('/api/pedidos/' + pedidoId + '/detalle')
-                .then(function(response) { return response.json(); })
-                .then(function(data) {
-                    if (data.error) {
-                        alert('Error: ' + data.error);
-                        return;
-                    }
-                    
-                    mostrarModalDetalle(data.pedido, data.detalles);
-                })
-                .catch(function(error) {
-                    alert('Error cargando detalle del pedido');
-                });
-        }
-        
-        function mostrarModalDetalle(pedido, detalles) {
-            var modal = document.getElementById('modalDetalle');
-            var titulo = document.getElementById('modalTitulo');
-            var contenido = document.getElementById('modalContenido');
-            
-            titulo.textContent = 'Pedido ' + pedido.pedido_id;
-            
-            var estadoClass = '';
-            if (pedido.estado === 'CONFIRMADO') {
-                estadoClass = 'bg-green-100 text-green-800';
-            } else if (pedido.estado === 'PENDIENTE') {
-                estadoClass = 'bg-yellow-100 text-yellow-800';
-            } else {
-                estadoClass = 'bg-red-100 text-red-800';
-            }
-            
-            var html = '<div class="bg-gray-50 p-4 rounded-lg mb-4">' +
-                      '<div class="grid grid-cols-2 gap-4">' +
-                      '<div><strong>Cliente:</strong> ' + pedido.cliente_nombre + '</div>' +
-                      '<div><strong>Fecha:</strong> ' + pedido.fecha_hora + '</div>' +
-                      '<div><strong>Items:</strong> ' + (pedido.items_cantidad || 0) + '</div>' +
-                      '<div><strong>Total:</strong> $' + parseInt(pedido.total || 0).toLocaleString() + '</div>' +
-                      '</div>' +
-                      '<div class="mt-2">' +
-                      '<span class="px-2 py-1 rounded text-sm ' + estadoClass + '">' + pedido.estado + '</span>' +
-                      '</div>' +
-                      '</div>';
-            
-            if (detalles && detalles.length > 0) {
-                html += '<div class="border-t pt-4">' +
-                       '<h4 class="font-semibold mb-3">📦 Productos:</h4>' +
-                       '<div class="space-y-2">';
-                
-                for (var i = 0; i < detalles.length; i++) {
-                    var detalle = detalles[i];
-                    html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">' +
-                           '<div>' +
-                           '<div class="font-medium">' + detalle.producto_nombre + '</div>' +
-                           '<div class="text-sm text-gray-600">Cantidad: ' + detalle.cantidad + ' x $' + parseInt(detalle.precio_unitario || 0).toLocaleString() + '</div>' +
-                           '</div>' +
-                           '<div class="font-bold">$' + parseInt(detalle.importe || 0).toLocaleString() + '</div>' +
-                           '</div>';
-                }
-                
-                html += '</div></div>';
-            } else {
-                html += '<div class="text-center text-gray-500 py-4">No hay detalles disponibles para este pedido</div>';
-            }
-            
-            contenido.innerHTML = html;
-            modal.classList.remove('hidden');
-        }
-        
-        function cerrarModal() {
-            var modal = document.getElementById('modalDetalle');
-            modal.classList.add('hidden');
-        }
-        
-        // Cerrar modal al hacer clic fuera
-        document.getElementById('modalDetalle').addEventListener('click', function(e) {
-            if (e.target === this) {
-                cerrarModal();
-            }
-        });
-        function cargarDatos() {
-            fetch('/health')
-                .then(function(r) { return r.json(); })
-                .then(function(h) {
-                    document.getElementById('sheets-status').textContent = h.sheets ? '✅' : '❌';
-                    document.getElementById('telegram-status').textContent = h.telegram ? '✅' : '❌';
-                    document.getElementById('server-status').textContent = h.status === 'OK' ? '✅' : '❌';
-                });
-
-            fetch('/api/stats')
-                .then(function(r) { return r.json(); })
-                .then(function(s) {
-                    document.getElementById('totalClientes').textContent = s.totalClientes;
-                    document.getElementById('totalProductos').textContent = s.totalProductos;
-                    document.getElementById('totalPedidos').textContent = s.totalPedidos;
-                    document.getElementById('ventasTotal').textContent = '$' + s.ventasTotal.toLocaleString();
-                });
-
-            fetch('/api/pedidos')
-                .then(function(r) { return r.json(); })
-                .then(function(pedidos) {
-                    var container = document.getElementById('pedidos');
-                    if (pedidos.length === 0) {
-                        container.innerHTML = '<div class="text-center text-gray-500">No hay pedidos</div>';
-                        return;
-                    }
-                    
-                    var html = '';
-                    var recientes = pedidos.slice(-10).reverse();
-                    
-                    for (var i = 0; i < recientes.length; i++) {
-                        var p = recientes[i];
-                        var clase = '';
-                        var botones = '';
-                        
-                        if (p.estado === 'CONFIRMADO') {
-                            clase = 'bg-green-100 text-green-800';
-                        } else if (p.estado === 'PENDIENTE') {
-                            clase = 'bg-yellow-100 text-yellow-800';
-                            botones = '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CONFIRMADO\\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded mr-1">✓</button>' +
-                                     '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CANCELADO\\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded">✗</button>';
-                        } else {
-                            clase = 'bg-red-100 text-red-800';
-                        }
-                        
-                        html += '<div class="flex justify-between items-center p-4 border rounded-lg">' +
-                               '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\\'' + p.pedido_id + '\\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
-                               '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
-                               '<div class="text-right"><p class="font-bold">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
-                               '<div class="flex items-center gap-2 mt-1">' +
-                               '<span class="px-2 py-1 rounded text-sm ' + clase + '">' + p.estado + '</span>' +
-                               botones + '</div></div></div>';
-                    }
-                    
-                    container.innerHTML = html;
-                })
-                .catch(function() {
-                    document.getElementById('pedidos').innerHTML = '<div class="text-center text-red-500">Error cargando datos</div>';
-                });
-        }
-
-        cargarDatos();
-        setInterval(cargarDatos, 10000);
-    </script>
-</body>
-</html>`;
-  
-  res.send(html);
   res.send(html);
 });
 
