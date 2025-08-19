@@ -159,25 +159,14 @@ app.get('/api/productos', async (req, res) => {
 });
 
 app.get('/api/pedidos', async (req, res) => {
-  let pedidos = await leerSheet('Pedidos');
-  
-  // Combinar con pedidos en memoria
-  if (pedidosEnMemoria.length > 0) {
-    pedidos = [...pedidos, ...pedidosEnMemoria];
-  }
-  
+  const pedidos = await leerSheet('Pedidos');
   res.json(pedidos);
 });
 
 app.get('/api/stats', async (req, res) => {
   const clientes = await leerSheet('Clientes');
   const productos = await leerSheet('Productos');
-  let pedidos = await leerSheet('Pedidos');
-  
-  // Combinar con pedidos en memoria
-  if (pedidosEnMemoria.length > 0) {
-    pedidos = [...pedidos, ...pedidosEnMemoria];
-  }
+  const pedidos = await leerSheet('Pedidos');
   
   const stats = {
     totalClientes: clientes.length,
@@ -189,13 +178,49 @@ app.get('/api/stats', async (req, res) => {
   res.json(stats);
 });
 
+// API para cambiar estado de pedido
+app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
+  try {
+    const { pedidoId } = req.params;
+    const { estado } = req.body;
+    
+    if (!['PENDIENTE', 'CONFIRMADO', 'CANCELADO'].includes(estado)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+    
+    // Leer todos los pedidos
+    const pedidos = await leerSheet('Pedidos');
+    const pedidoIndex = pedidos.findIndex(p => p.pedido_id === pedidoId);
+    
+    if (pedidoIndex === -1) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+    
+    // Actualizar estado en Google Sheets
+    const rowNumber = pedidoIndex + 2; // +2 porque: +1 para header, +1 para índice base 0
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Pedidos!G${rowNumber}`,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[estado]]
+      }
+    });
+    
+    res.json({ success: true, pedidoId, estado });
+    
+  } catch (error) {
+    console.error('Error actualizando estado:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Telegram Bot
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_URL = process.env.RAILWAY_STATIC_URL ? `${process.env.RAILWAY_STATIC_URL}/webhook` : null;
 
 // Estado del bot (en memoria)
 const sesionesBot = new Map();
-const pedidosEnMemoria = [];
 let contadorPedidos = 1;
 
 // Webhook de Telegram
@@ -586,17 +611,14 @@ async function manejarCallback(callback_query) {
       cliente_nombre: clienteNombre,
       items_cantidad: sesion.pedido.items.length,
       total: sesion.pedido.total,
-      estado: 'CONFIRMADO',
+      estado: 'PENDIENTE',
       items: sesion.pedido.items
     };
     
-    // Guardar en memoria
-    pedidosEnMemoria.push(nuevoPedido);
-    
-    // Intentar guardar en Google Sheets
+    // Guardar directamente en Google Sheets
     await escribirSheet('Pedidos', [
       pedidoId, fechaHora, clienteId, clienteNombre, 
-      sesion.pedido.items.length, sesion.pedido.total, 'CONFIRMADO'
+      sesion.pedido.items.length, sesion.pedido.total, 'PENDIENTE'
     ]);
     
     // Guardar detalles del pedido en DetallePedidos
@@ -619,15 +641,17 @@ async function manejarCallback(callback_query) {
     // Limpiar sesión
     sesionesBot.set(userId, { estado: 'inicio', pedido: { items: [], total: 0 } });
     
-    let mensaje = `✅ PEDIDO CONFIRMADO\n\n`;
+    let mensaje = `📋 PEDIDO ENVIADO\n\n`;
     mensaje += `📋 Pedido: ${pedidoId}\n`;
     mensaje += `👤 Cliente: ${clienteNombre}\n`;
     mensaje += `📅 Fecha: ${fechaHora}\n\n`;
+    mensaje += `⏳ Estado: PENDIENTE\n\n`;
     mensaje += `🛒 PRODUCTOS:\n`;
     nuevoPedido.items.forEach((item, index) => {
       mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n`;
     });
     mensaje += `\n💰 TOTAL: $${nuevoPedido.total}`;
+    mensaje += `\n\n⏳ Tu pedido está pendiente de confirmación`;
     
     await enviarMensaje(chatId, mensaje, {
       reply_markup: {
@@ -802,6 +826,27 @@ app.get('/', (req, res) => {
     </div>
 
     <script>
+        async function cambiarEstado(pedidoId, nuevoEstado) {
+            try {
+                const response = await fetch(`/api/pedidos/${pedidoId}/estado`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ estado: nuevoEstado })
+                });
+                
+                if (response.ok) {
+                    cargarDatos(); // Recargar datos
+                } else {
+                    alert('Error cambiando estado del pedido');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error de conexión');
+            }
+        }
+
         async function cargarDatos() {
             try {
                 // Health check
@@ -837,9 +882,25 @@ app.get('/', (req, res) => {
                             </div>
                             <div class="text-right">
                                 <p class="font-bold">$\${parseInt(pedido.total || 0).toLocaleString()}</p>
-                                <span class="px-2 py-1 rounded text-sm \${pedido.estado === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
-                                    \${pedido.estado}
-                                </span>
+                                <div class="flex items-center gap-2 mt-1">
+                                    <span class="px-2 py-1 rounded text-sm \${
+                                        pedido.estado === 'CONFIRMADO' ? 'bg-green-100 text-green-800' : 
+                                        pedido.estado === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' : 
+                                        'bg-red-100 text-red-800'
+                                    }">
+                                        \${pedido.estado}
+                                    </span>
+                                    \${pedido.estado === 'PENDIENTE' ? \`
+                                        <button onclick="cambiarEstado('\${pedido.pedido_id}', 'CONFIRMADO')" 
+                                                class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">
+                                            ✓ Confirmar
+                                        </button>
+                                        <button onclick="cambiarEstado('\${pedido.pedido_id}', 'CANCELADO')" 
+                                                class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">
+                                            ✗ Cancelar
+                                        </button>
+                                    \` : ''}
+                                </div>
                             </div>
                         </div>
                     \`).join('');
