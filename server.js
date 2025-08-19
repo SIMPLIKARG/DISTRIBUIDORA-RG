@@ -979,7 +979,7 @@ app.get('/', (req, res) => {
                 if (response.ok) {
                     cargarDatos();
                 } else {
-                    var htmlPendientes = '';
+                    alert('Error actualizando estado');
                 }
             })
             .catch(function(error) {
@@ -1035,28 +1035,16 @@ app.get('/', (req, res) => {
                 html += '<div class="border-t pt-4">';
                 html += '<h4 class="font-semibold mb-3">📦 Productos:</h4>';
                 html += '<div class="space-y-2">';
-                        var clienteNombre = p.cliente_nombre || 'Sin nombre';
-                        var fechaHora = p.fecha_hora || 'Sin fecha';
-                        var itemsCantidad = p.items_cantidad || 0;
-                        var total = parseInt(p.total || 0);
-                        
-                        htmlPendientes += '<div class="flex justify-between items-center p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg">';
-                        htmlPendientes += '<div>';
-                        htmlPendientes += '<h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + pedidoId + '\')">📋 ' + pedidoId + ' - ' + clienteNombre + '</h3>';
-                        htmlPendientes += '<p class="text-gray-600">' + fechaHora + ' - ' + itemsCantidad + ' items</p>';
-                        htmlPendientes += '</div>';
-                        htmlPendientes += '<div class="text-right">';
-                        htmlPendientes += '<p class="font-bold text-lg">$' + total.toLocaleString() + '</p>';
-                        htmlPendientes += '<div class="flex items-center gap-2 mt-2">';
-                        htmlPendientes += '<span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">⏳ PENDIENTE</span>';
+                
+                detalles.forEach(function(detalle) {
                     html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">';
                     html += '<div>';
                     html += '<div class="font-medium">' + (detalle.producto_nombre || 'Producto sin nombre') + '</div>';
-                var errorMsg = '<div class="text-center text-red-500 p-4 border border-red-300 rounded">';
-                errorMsg += '<h3 class="font-bold">Error cargando datos</h3>';
-                errorMsg += '<p class="text-sm mt-2">' + error.message + '</p>';
-                errorMsg += '<p class="text-xs mt-1 text-gray-600">Revisa la consola para más detalles</p>';
-                errorMsg += '</div>';
+                    html += '<div class="text-sm text-gray-600">Cantidad: ' + (detalle.cantidad || 0) + ' x $' + parseInt(detalle.precio_unitario || 0).toLocaleString() + '</div>';
+                    html += '</div>';
+                    html += '<div class="font-bold">$' + parseInt(detalle.importe || 0).toLocaleString() + '</div>';
+                    html += '</div>';
+                });
                 
                 html += '</div>';
                 html += '</div>';
@@ -1130,15 +1118,24 @@ app.get('/', (req, res) => {
                         var htmlPendientes = '';
                         // Mostrar más recientes primero
                         pendientes.reverse().forEach(function(p) {
-                            htmlPendientes += '<div class="flex justify-between items-center p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg">' +
-                                           '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
-                                           '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
-                                           '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
-                                           '<div class="flex items-center gap-2 mt-2">' +
-                                           '<span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">⏳ PENDIENTE</span>' +
-                                           '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CONFIRMADO\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">✓ Confirmar</button>' +
-                                           '<button onclick="cambiarEstado(\'' + p.pedido_id + '\', \'CANCELADO\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">✗ Cancelar</button>' +
-                                           '</div></div></div>';
+                            var pedidoId = p.pedido_id;
+                            var clienteNombre = p.cliente_nombre || 'Sin nombre';
+                            var fechaHora = p.fecha_hora || 'Sin fecha';
+                            var itemsCantidad = p.items_cantidad || 0;
+                            var total = parseInt(p.total || 0);
+                            
+                            htmlPendientes += '<div class="flex justify-between items-center p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg">';
+                            htmlPendientes += '<div>';
+                            htmlPendientes += '<h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + pedidoId + '\')">📋 ' + pedidoId + ' - ' + clienteNombre + '</h3>';
+                            htmlPendientes += '<p class="text-gray-600">' + fechaHora + ' - ' + itemsCantidad + ' items</p>';
+                            htmlPendientes += '</div>';
+                            htmlPendientes += '<div class="text-right">';
+                            htmlPendientes += '<p class="font-bold text-lg">$' + total.toLocaleString() + '</p>';
+                            htmlPendientes += '<div class="flex items-center gap-2 mt-2">';
+                            htmlPendientes += '<span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">⏳ PENDIENTE</span>';
+                            htmlPendientes += '<button onclick="cambiarEstado(\'' + pedidoId + '\', \'CONFIRMADO\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">✓ Confirmar</button>';
+                            htmlPendientes += '<button onclick="cambiarEstado(\'' + pedidoId + '\', \'CANCELADO\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">✗ Cancelar</button>';
+                            htmlPendientes += '</div></div></div>';
                         });
                         containerPendientes.innerHTML = htmlPendientes;
                     }
@@ -1151,13 +1148,22 @@ app.get('/', (req, res) => {
                         var htmlConfirmados = '';
                         // Mostrar últimos 10, más recientes primero
                         confirmados.slice(-10).reverse().forEach(function(p) {
-                            htmlConfirmados += '<div class="flex justify-between items-center p-4 border-l-4 border-green-400 bg-green-50 rounded-lg">' +
-                                             '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + p.pedido_id + '\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
-                                             '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
-                                             '<div class="text-right"><p class="font-bold text-lg">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
-                                             '<div class="flex items-center gap-2 mt-2">' +
-                                             '<span class="px-2 py-1 rounded text-sm bg-green-100 text-green-800">✅ CONFIRMADO</span>' +
-                                             '</div></div></div>';
+                            var pedidoId = p.pedido_id;
+                            var clienteNombre = p.cliente_nombre || 'Sin nombre';
+                            var fechaHora = p.fecha_hora || 'Sin fecha';
+                            var itemsCantidad = p.items_cantidad || 0;
+                            var total = parseInt(p.total || 0);
+                            
+                            htmlConfirmados += '<div class="flex justify-between items-center p-4 border-l-4 border-green-400 bg-green-50 rounded-lg">';
+                            htmlConfirmados += '<div>';
+                            htmlConfirmados += '<h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + pedidoId + '\')">📋 ' + pedidoId + ' - ' + clienteNombre + '</h3>';
+                            htmlConfirmados += '<p class="text-gray-600">' + fechaHora + ' - ' + itemsCantidad + ' items</p>';
+                            htmlConfirmados += '</div>';
+                            htmlConfirmados += '<div class="text-right">';
+                            htmlConfirmados += '<p class="font-bold text-lg">$' + total.toLocaleString() + '</p>';
+                            htmlConfirmados += '<div class="flex items-center gap-2 mt-2">';
+                            htmlConfirmados += '<span class="px-2 py-1 rounded text-sm bg-green-100 text-green-800">✅ CONFIRMADO</span>';
+                            htmlConfirmados += '</div></div></div>';
                         });
                         containerConfirmados.innerHTML = htmlConfirmados;
                     }
