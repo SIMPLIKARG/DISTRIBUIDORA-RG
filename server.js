@@ -761,7 +761,6 @@ app.get('/test-sheets', async (req, res) => {
 });
 // Dashboard web
 app.get('/', (req, res) => {
-  res.send(`
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -880,8 +879,8 @@ app.get('/', (req, res) => {
                             clase = 'bg-green-100 text-green-800';
                         } else if (p.estado === 'PENDIENTE') {
                             clase = 'bg-yellow-100 text-yellow-800';
-                            botones = '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CONFIRMADO\\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded mr-1">✓</button>' +
-                                     '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CANCELADO\\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded">✗</button>';
+                            botones = '<button onclick="cambiarEstado(\\'' + p.pedido_id + \'\\', \\\'CONFIRMADO\\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded mr-1">✓</button>' +
+                                     '<button onclick="cambiarEstado(\\'' + p.pedido_id + \'\\', \\\'CANCELADO\\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded">✗</button>';
                         } else {
                             clase = 'bg-red-100 text-red-800';
                         }
