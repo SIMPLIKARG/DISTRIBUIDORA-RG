@@ -180,6 +180,33 @@ async function appendToSheet(sheetName, data) {
 // Estado del bot por usuario
 const userSessions = new Map();
 
+// Función para crear teclados inline
+function createInlineKeyboard(buttons, columns = 2) {
+  const keyboard = [];
+  for (let i = 0; i < buttons.length; i += columns) {
+    const row = buttons.slice(i, i + columns).map(button => ({
+      text: button.text,
+      callback_data: button.callback_data
+    }));
+    keyboard.push(row);
+  }
+  return { inline_keyboard: keyboard };
+}
+
+// Función para crear teclado de respuesta
+function createReplyKeyboard(buttons, columns = 2) {
+  const keyboard = [];
+  for (let i = 0; i < buttons.length; i += columns) {
+    const row = buttons.slice(i, i + columns);
+    keyboard.push(row);
+  }
+  return {
+    keyboard: keyboard,
+    resize_keyboard: true,
+    one_time_keyboard: true
+  };
+}
+
 // Funciones del bot
 function normalizeText(text) {
   return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
@@ -191,6 +218,25 @@ function generateId() {
 
 function generateDetailId() {
   return 'DET' + Date.now().toString(36).toUpperCase();
+}
+
+async function saveNewClient(clientData) {
+  try {
+    // Obtener clientes existentes para generar nuevo ID
+    const clientes = await getDataFromSheet('Clientes');
+    const maxId = Math.max(...clientes.map(c => c.cliente_id), 0);
+    const newClient = {
+      cliente_id: maxId + 1,
+      nombre: clientData.nombre
+    };
+    
+    await appendToSheet('Clientes', newClient);
+    console.log('✅ Cliente nuevo guardado:', newClient);
+    return newClient;
+  } catch (error) {
+    console.error('❌ Error guardando cliente:', error);
+    throw error;
+  }
 }
 
 async function sendTelegramMessage(chatId, text, options = {}) {
@@ -231,6 +277,7 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
     step: 'inicio',
     pedidoId: null,
     clienteSeleccionado: null,
+    nuevoCliente: null,
     categoriaSeleccionada: null,
     productoSeleccionado: null,
     carrito: [],
@@ -244,149 +291,230 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
     switch (session.step) {
       case 'inicio':
         if (input === '/start' || input === 'start') {
+          const keyboard = createReplyKeyboard(['🛒 Crear Pedido', '📋 Ver Ayuda']);
           await sendTelegramMessage(chatId, 
-            `¡Hola ${userName}! 👋\n\nSoy tu asistente para pedidos de la distribuidora.\n\n¿Listo para crear un nuevo pedido?\n\nEscribe "iniciar" para comenzar.`
+            `¡Hola ${userName}! 👋\n\nSoy tu asistente para pedidos de la distribuidora.\n\n¿Qué querés hacer?`,
+            { reply_markup: keyboard }
           );
-          session.step = 'esperando_inicio';
-        } else if (input === 'iniciar') {
-          const clientes = await getDataFromSheet('Clientes');
-          const clientesTexto = clientes.slice(0, 8).map(c => `• ${c.nombre}`).join('\n');
-          await sendTelegramMessage(chatId, 
-            `¿Para qué cliente es el pedido?\n\n*Clientes disponibles:*\n${clientesTexto}\n\nEscribe el nombre del cliente:`
-          );
+          session.step = 'menu_principal';
+        } else if (input === '🛒 crear pedido' || input === 'crear pedido') {
           session.step = 'seleccion_cliente';
-        } else {
+          await mostrarMenuClientes(chatId);
+        } else if (input === '📋 ver ayuda' || input === 'ayuda' || input === '/ayuda') {
+          const keyboard = createReplyKeyboard(['🛒 Crear Pedido', '🔙 Volver']);
           await sendTelegramMessage(chatId, 
-            'Escribe /start para comenzar o "iniciar" para crear un pedido.'
+            `🤖 *Comandos disponibles:*\n\n🛒 Crear Pedido - Iniciar nuevo pedido\n📋 Ver Ayuda - Esta ayuda\n\n*¿Cómo funciona?*\n1️⃣ Selecciona un cliente\n2️⃣ Elige una categoría\n3️⃣ Agrega productos\n4️⃣ Confirma tu pedido\n\n¡Es muy fácil! 😊`,
+            { reply_markup: keyboard }
+          );
+        } else {
+          const keyboard = createReplyKeyboard(['🛒 Crear Pedido', '📋 Ver Ayuda']);
+          await sendTelegramMessage(chatId, 
+            'No entendí ese comando. ¿Qué querés hacer?',
+            { reply_markup: keyboard }
           );
         }
         break;
 
-      case 'esperando_inicio':
-        if (input === 'iniciar') {
-          const clientes = await getDataFromSheet('Clientes');
-          const clientesTexto = clientes.slice(0, 8).map(c => `• ${c.nombre}`).join('\n');
-          await sendTelegramMessage(chatId, 
-            `¿Para qué cliente es el pedido?\n\n*Clientes disponibles:*\n${clientesTexto}\n\nEscribe el nombre del cliente:`
-          );
+      case 'menu_principal':
+        if (input === '🛒 crear pedido') {
           session.step = 'seleccion_cliente';
-        } else {
+          await mostrarMenuClientes(chatId);
+        } else if (input === '📋 ver ayuda') {
+          const keyboard = createReplyKeyboard(['🛒 Crear Pedido', '🔙 Volver']);
           await sendTelegramMessage(chatId, 
-            'Escribe "iniciar" para crear un nuevo pedido.'
+            `🤖 *Comandos disponibles:*\n\n🛒 Crear Pedido - Iniciar nuevo pedido\n📋 Ver Ayuda - Esta ayuda\n\n*¿Cómo funciona?*\n1️⃣ Selecciona un cliente\n2️⃣ Elige una categoría\n3️⃣ Agrega productos\n4️⃣ Confirma tu pedido`,
+            { reply_markup: keyboard }
+          );
+        } else if (input === '🔙 volver') {
+          session.step = 'inicio';
+          const keyboard = createReplyKeyboard(['🛒 Crear Pedido', '📋 Ver Ayuda']);
+          await sendTelegramMessage(chatId, 
+            `¿Qué querés hacer?`,
+            { reply_markup: keyboard }
+          );
+        } else {
+          const keyboard = createReplyKeyboard(['🛒 Crear Pedido', '📋 Ver Ayuda']);
+          await sendTelegramMessage(chatId, 
+            'Elegí una opción del menú:',
+            { reply_markup: keyboard }
           );
         }
         break;
 
       case 'seleccion_cliente':
-        const clientes = await getDataFromSheet('Clientes');
-        const clientesEncontrados = clientes.filter(cliente => 
-          normalizeText(cliente.nombre).includes(normalizeText(message))
-        );
-        
-        if (clientesEncontrados.length === 1) {
-          const cliente = clientesEncontrados[0];
-          session.pedidoId = generateId();
-          session.clienteSeleccionado = cliente;
-          
-          const categorias = await getDataFromSheet('Categorias');
-          const categoriasTexto = categorias.map(c => `• ${c.categoria_nombre}`).join('\n');
+        if (input === '➕ agregar cliente nuevo') {
           await sendTelegramMessage(chatId, 
-            `✅ Cliente seleccionado: *${cliente.nombre}*\n\nAhora elige una categoría:\n\n${categoriasTexto}`
+            `👤 *Agregar Cliente Nuevo*\n\nEscribe el nombre completo del nuevo cliente:\n\n*Ejemplo:* Juan Pérez`
           );
-          session.step = 'seleccion_categoria';
-        } else if (clientesEncontrados.length > 1) {
-          const opcionesTexto = clientesEncontrados.slice(0, 8).map(c => `• ${c.nombre}`).join('\n');
+          session.step = 'ingreso_nuevo_cliente';
+        } else if (input === '🔙 volver al menú') {
+          session.step = 'menu_principal';
+          const keyboard = createReplyKeyboard(['🛒 Crear Pedido', '📋 Ver Ayuda']);
           await sendTelegramMessage(chatId, 
-            `Encontré varios clientes:\n${opcionesTexto}\n\n¿Cuál elegís?`
+            `¿Qué querés hacer?`,
+            { reply_markup: keyboard }
           );
         } else {
-          const clientesTexto = clientes.slice(0, 8).map(c => `• ${c.nombre}`).join('\n');
-          await sendTelegramMessage(chatId, 
-            `No encontré ese cliente. Probá con:\n${clientesTexto}`
+          // Buscar cliente por nombre
+          const clientes = await getDataFromSheet('Clientes');
+          const clientesEncontrados = clientes.filter(cliente => 
+            normalizeText(cliente.nombre).includes(normalizeText(message))
           );
+          
+          if (clientesEncontrados.length === 1) {
+            const cliente = clientesEncontrados[0];
+            session.pedidoId = generateId();
+            session.clienteSeleccionado = cliente;
+            
+            await sendTelegramMessage(chatId, 
+              `✅ Cliente seleccionado: *${cliente.nombre}*\n\nAhora elige una categoría:`
+            );
+            session.step = 'seleccion_categoria';
+            await mostrarMenuCategorias(chatId);
+          } else if (clientesEncontrados.length > 1) {
+            const buttons = clientesEncontrados.slice(0, 8).map(c => c.nombre);
+            buttons.push('➕ Agregar Cliente Nuevo', '🔙 Volver al Menú');
+            const keyboard = createReplyKeyboard(buttons, 1);
+            await sendTelegramMessage(chatId, 
+              `Encontré varios clientes. ¿Cuál elegís?`,
+              { reply_markup: keyboard }
+            );
+          } else {
+            await mostrarMenuClientes(chatId);
+            await sendTelegramMessage(chatId, 
+              `❌ No encontré el cliente "${message}". Elegí uno de la lista o agregá uno nuevo.`
+            );
+          }
+        }
+        break;
+
+      case 'ingreso_nuevo_cliente':
+        if (message.trim().length < 2) {
+          await sendTelegramMessage(chatId, 
+            `❌ El nombre debe tener al menos 2 caracteres. Intentá de nuevo:`
+          );
+          break;
+        }
+
+        try {
+          const nuevoCliente = await saveNewClient({ nombre: message.trim() });
+          session.pedidoId = generateId();
+          session.clienteSeleccionado = nuevoCliente;
+          
+          await sendTelegramMessage(chatId, 
+            `✅ *Cliente creado exitosamente!*\n\n👤 ${nuevoCliente.nombre}\n🆔 ID: ${nuevoCliente.cliente_id}\n\nAhora elige una categoría:`
+          );
+          session.step = 'seleccion_categoria';
+          await mostrarMenuCategorias(chatId);
+        } catch (error) {
+          await sendTelegramMessage(chatId, 
+            `❌ Error creando el cliente. Intentá de nuevo o volvé al menú.`
+          );
+          await mostrarMenuClientes(chatId);
+          session.step = 'seleccion_cliente';
         }
         break;
 
       case 'seleccion_categoria':
-        const categorias = await getDataFromSheet('Categorias');
-        const categoria = categorias.find(c => 
-          normalizeText(c.categoria_nombre) === normalizeText(message)
-        );
-
-        if (categoria) {
-          const productos = await getDataFromSheet('Productos');
-          const productosCategoria = productos.filter(p => 
-            p.categoria_id === categoria.categoria_id && p.activo === 'SI'
-          );
-
-          session.categoriaSeleccionada = categoria;
-
-          if (productosCategoria.length > 0) {
-            const productosTexto = productosCategoria.slice(0, 10).map(p => 
-              `• ${p.producto_nombre} - $${p.precio.toLocaleString('es-ES')}`
-            ).join('\n');
-            
-            await sendTelegramMessage(chatId, 
-              `📦 *${categoria.categoria_nombre}*\n\nProductos disponibles:\n${productosTexto}\n\n¿Cuál querés agregar?`
-            );
-            session.step = 'seleccion_producto';
-          } else {
-            const categoriasTexto = categorias.map(c => `• ${c.categoria_nombre}`).join('\n');
-            await sendTelegramMessage(chatId, 
-              `No hay productos disponibles en esa categoría. Elegí otra:\n${categoriasTexto}`
-            );
-          }
+        if (input === '🔙 cambiar cliente') {
+          session.clienteSeleccionado = null;
+          session.pedidoId = null;
+          session.step = 'seleccion_cliente';
+          await mostrarMenuClientes(chatId);
         } else {
-          const categoriasTexto = categorias.map(c => `• ${c.categoria_nombre}`).join('\n');
-          await sendTelegramMessage(chatId, 
-            `Esa categoría no existe. Elegí una de la lista:\n${categoriasTexto}`
+          const categorias = await getDataFromSheet('Categorias');
+          const categoria = categorias.find(c => 
+            normalizeText(c.categoria_nombre) === normalizeText(message)
           );
+
+          if (categoria) {
+            const productos = await getDataFromSheet('Productos');
+            const productosCategoria = productos.filter(p => 
+              p.categoria_id === categoria.categoria_id && p.activo === 'SI'
+            );
+
+            session.categoriaSeleccionada = categoria;
+
+            if (productosCategoria.length > 0) {
+              await sendTelegramMessage(chatId, 
+                `📦 *${categoria.categoria_nombre}*\n\nElegí un producto:`
+              );
+              session.step = 'seleccion_producto';
+              await mostrarMenuProductos(chatId, categoria.categoria_id);
+            } else {
+              await sendTelegramMessage(chatId, 
+                `❌ No hay productos disponibles en esa categoría.`
+              );
+              await mostrarMenuCategorias(chatId);
+            }
+          } else {
+            await sendTelegramMessage(chatId, 
+              `❌ Categoría no encontrada. Elegí una de la lista:`
+            );
+            await mostrarMenuCategorias(chatId);
+          }
         }
         break;
 
       case 'seleccion_producto':
-        const productos = await getDataFromSheet('Productos');
-        const nombreProducto = message.split(' - $')[0];
-        const productosEncontrados = productos.filter(producto => 
-          producto.categoria_id === session.categoriaSeleccionada.categoria_id &&
-          producto.activo === 'SI' &&
-          normalizeText(producto.producto_nombre).includes(normalizeText(nombreProducto))
-        );
-
-        if (productosEncontrados.length === 1) {
-          const producto = productosEncontrados[0];
-          session.productoSeleccionado = producto;
-
-          await sendTelegramMessage(chatId, 
-            `🛒 *${producto.producto_nombre}*\nPrecio: $${producto.precio.toLocaleString('es-ES')}\n\n¿Qué cantidad querés agregar?\n\n(Ejemplo: 2 o 1.5)`
-          );
-          session.step = 'ingreso_cantidad';
-        } else if (productosEncontrados.length > 1) {
-          const opcionesTexto = productosEncontrados.slice(0, 8).map(p => 
-            `• ${p.producto_nombre} - $${p.precio.toLocaleString('es-ES')}`
-          ).join('\n');
-          await sendTelegramMessage(chatId, 
-            `Encontré varios productos:\n${opcionesTexto}\n\n¿Cuál elegís?`
-          );
+        if (input === '🔙 cambiar categoría') {
+          session.categoriaSeleccionada = null;
+          session.step = 'seleccion_categoria';
+          await mostrarMenuCategorias(chatId);
         } else {
-          const productosCategoria = productos.filter(p => 
-            p.categoria_id === session.categoriaSeleccionada.categoria_id && p.activo === 'SI'
+          const productos = await getDataFromSheet('Productos');
+          const nombreProducto = message.split(' - $')[0];
+          const productosEncontrados = productos.filter(producto => 
+            producto.categoria_id === session.categoriaSeleccionada.categoria_id &&
+            producto.activo === 'SI' &&
+            normalizeText(producto.producto_nombre).includes(normalizeText(nombreProducto))
           );
-          const productosTexto = productosCategoria.slice(0, 10).map(p => 
-            `• ${p.producto_nombre} - $${p.precio.toLocaleString('es-ES')}`
-          ).join('\n');
-          
-          await sendTelegramMessage(chatId, 
-            `Producto no encontrado. Elegí uno de la lista:\n${productosTexto}`
-          );
+
+          if (productosEncontrados.length === 1) {
+            const producto = productosEncontrados[0];
+            session.productoSeleccionado = producto;
+
+            const keyboard = createReplyKeyboard(['1', '2', '3', '4', '5', '🔙 Cambiar Producto'], 3);
+            await sendTelegramMessage(chatId, 
+              `🛒 *${producto.producto_nombre}*\n💰 Precio: $${producto.precio.toLocaleString('es-ES')}\n\n¿Qué cantidad querés agregar?`,
+              { reply_markup: keyboard }
+            );
+            session.step = 'ingreso_cantidad';
+          } else if (productosEncontrados.length > 1) {
+            const buttons = productosEncontrados.slice(0, 8).map(p => 
+              `${p.producto_nombre} - $${p.precio.toLocaleString('es-ES')}`
+            );
+            buttons.push('🔙 Cambiar Categoría');
+            const keyboard = createReplyKeyboard(buttons, 1);
+            await sendTelegramMessage(chatId, 
+              `Encontré varios productos. ¿Cuál elegís?`,
+              { reply_markup: keyboard }
+            );
+          } else {
+            await sendTelegramMessage(chatId, 
+              `❌ Producto no encontrado. Elegí uno de la lista:`
+            );
+            await mostrarMenuProductos(chatId, session.categoriaSeleccionada.categoria_id);
+          }
         }
         break;
 
       case 'ingreso_cantidad':
+        if (input === '🔙 cambiar producto') {
+          session.productoSeleccionado = null;
+          session.step = 'seleccion_producto';
+          await mostrarMenuProductos(chatId, session.categoriaSeleccionada.categoria_id);
+          break;
+        }
+        
         const cantidad = parseFloat(message.replace(',', '.'));
         
         if (isNaN(cantidad) || cantidad <= 0) {
-          await sendTelegramMessage(chatId, 'Por favor ingresá un número mayor a 0.\n\nEjemplo: 2 o 1.5');
+          const keyboard = createReplyKeyboard(['1', '2', '3', '4', '5', '🔙 Cambiar Producto'], 3);
+          await sendTelegramMessage(chatId, 
+            '❌ Por favor ingresá un número mayor a 0.\n\n*Ejemplo:* 2 o 1.5',
+            { reply_markup: keyboard }
+          );
           break;
         }
 
@@ -405,35 +533,46 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
         session.carrito.push(nuevoDetalle);
         session.total = session.carrito.reduce((sum, item) => sum + item.importe, 0);
 
+        const keyboard = createReplyKeyboard(['➕ Agregar Más', '👀 Ver Carrito', '✅ Finalizar Pedido'], 1);
         await sendTelegramMessage(chatId, 
-          `✅ *Agregado al carrito:*\n${cantidad} × ${session.productoSeleccionado.producto_nombre} = $${importe.toLocaleString('es-ES')}\n\n💰 *Total parcial: $${session.total.toLocaleString('es-ES')}*\n\n¿Qué querés hacer?\n\n• Escribe "agregar" para más productos\n• Escribe "finalizar" para confirmar el pedido\n• Escribe "ver" para ver el carrito`
+          `✅ *Agregado al carrito:*\n${cantidad} × ${session.productoSeleccionado.producto_nombre} = $${importe.toLocaleString('es-ES')}\n\n💰 *Total parcial: $${session.total.toLocaleString('es-ES')}*\n\n¿Qué querés hacer?`,
+          { reply_markup: keyboard }
         );
         session.step = 'carrito';
         break;
 
       case 'carrito':
-        if (input === 'agregar') {
-          const categorias = await getDataFromSheet('Categorias');
-          const categoriasTexto = categorias.map(c => `• ${c.categoria_nombre}`).join('\n');
+        if (input === '➕ agregar más') {
           await sendTelegramMessage(chatId, 
-            `Elegí una categoría para agregar más productos:\n\n${categoriasTexto}`
+            `Elegí una categoría para agregar más productos:`
           );
           session.step = 'seleccion_categoria';
-        } else if (input === 'ver') {
+          await mostrarMenuCategorias(chatId);
+        } else if (input === '👀 ver carrito') {
           if (session.carrito.length === 0) {
-            await sendTelegramMessage(chatId, 'Tu carrito está vacío.');
+            const keyboard = createReplyKeyboard(['➕ Agregar Más'], 1);
+            await sendTelegramMessage(chatId, 
+              '🛒 Tu carrito está vacío.',
+              { reply_markup: keyboard }
+            );
           } else {
             const carritoTexto = session.carrito.map((item, index) => 
               `${index + 1}. ${item.cantidad} × ${item.producto_nombre} = $${item.importe.toLocaleString('es-ES')}`
             ).join('\n');
             
+            const keyboard = createReplyKeyboard(['➕ Agregar Más', '✅ Finalizar Pedido'], 1);
             await sendTelegramMessage(chatId, 
-              `🛒 *Tu carrito:*\n\n${carritoTexto}\n\n💰 *Total: $${session.total.toLocaleString('es-ES')}*\n\nEscribe "agregar" para más productos o "finalizar" para confirmar.`
+              `🛒 *Tu carrito:*\n\n${carritoTexto}\n\n💰 *Total: $${session.total.toLocaleString('es-ES')}*`,
+              { reply_markup: keyboard }
             );
           }
-        } else if (input === 'finalizar') {
+        } else if (input === '✅ finalizar pedido') {
           if (session.carrito.length === 0) {
-            await sendTelegramMessage(chatId, 'No podés finalizar un pedido vacío.\n\nEscribe "agregar" para agregar productos.');
+            const keyboard = createReplyKeyboard(['➕ Agregar Más'], 1);
+            await sendTelegramMessage(chatId, 
+              '❌ No podés finalizar un pedido vacío.',
+              { reply_markup: keyboard }
+            );
             break;
           }
 
@@ -460,23 +599,41 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
             `${index + 1}. ${item.cantidad} × ${item.producto_nombre} = $${item.importe.toLocaleString('es-ES')}`
           ).join('\n');
 
+          const keyboard = createReplyKeyboard(['🛒 Nuevo Pedido', '📋 Ver Ayuda'], 1);
           await sendTelegramMessage(chatId, 
-            `🎉 *¡Pedido Confirmado!*\n\n👤 *Cliente:* ${session.clienteSeleccionado.nombre}\n📦 *Productos:*\n${carritoTexto}\n\n💰 *Total: $${session.total.toLocaleString('es-ES')}*\n🆔 *ID:* ${session.pedidoId}\n\n✅ Tu pedido ha sido guardado exitosamente.\n\n¡Gracias por tu compra!\n\nEscribe /start para crear otro pedido.`
+            `🎉 *¡Pedido Confirmado!*\n\n👤 *Cliente:* ${session.clienteSeleccionado.nombre}\n📦 *Productos:*\n${carritoTexto}\n\n💰 *Total: $${session.total.toLocaleString('es-ES')}*\n🆔 *ID:* ${session.pedidoId}\n\n✅ Tu pedido ha sido guardado exitosamente.\n\n¡Gracias por tu compra!`,
+            { reply_markup: keyboard }
           );
           
           // Resetear sesión
           session = {
-            step: 'inicio',
+            step: 'menu_principal',
             pedidoId: null,
             clienteSeleccionado: null,
+            nuevoCliente: null,
             categoriaSeleccionada: null,
             productoSeleccionado: null,
             carrito: [],
             total: 0
           };
+        } else if (input === '🛒 nuevo pedido') {
+          // Resetear sesión
+          session = {
+            step: 'seleccion_cliente',
+            pedidoId: null,
+            clienteSeleccionado: null,
+            nuevoCliente: null,
+            categoriaSeleccionada: null,
+            productoSeleccionado: null,
+            carrito: [],
+            total: 0
+          };
+          await mostrarMenuClientes(chatId);
         } else {
+          const keyboard = createReplyKeyboard(['➕ Agregar Más', '👀 Ver Carrito', '✅ Finalizar Pedido'], 1);
           await sendTelegramMessage(chatId, 
-            'Opciones disponibles:\n• "agregar" - Más productos\n• "finalizar" - Confirmar pedido\n• "ver" - Ver carrito'
+            'Elegí una opción del menú:',
+            { reply_markup: keyboard }
           );
         }
         break;
@@ -491,6 +648,7 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
       step: 'inicio',
       pedidoId: null,
       clienteSeleccionado: null,
+      nuevoCliente: null,
       categoriaSeleccionada: null,
       productoSeleccionado: null,
       carrito: [],
@@ -499,6 +657,93 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
   }
 
   userSessions.set(userId, session);
+}
+
+// Funciones auxiliares para mostrar menús
+async function mostrarMenuClientes(chatId) {
+  try {
+    const clientes = await getDataFromSheet('Clientes');
+    const buttons = clientes.slice(0, 8).map(c => c.nombre);
+    buttons.push('➕ Agregar Cliente Nuevo', '🔙 Volver al Menú');
+    
+    const keyboard = createReplyKeyboard(buttons, 1);
+    await sendTelegramMessage(chatId, 
+      `👥 *Seleccionar Cliente*\n\nElegí un cliente existente o agregá uno nuevo:`,
+      { reply_markup: keyboard }
+    );
+  } catch (error) {
+    console.error('Error mostrando menú clientes:', error);
+    await sendTelegramMessage(chatId, 'Error cargando clientes. Intentá de nuevo.');
+  }
+}
+
+async function mostrarMenuCategorias(chatId) {
+  try {
+    const categorias = await getDataFromSheet('Categorias');
+    const buttons = categorias.map(c => c.categoria_nombre);
+    buttons.push('🔙 Cambiar Cliente');
+    
+    const keyboard = createReplyKeyboard(buttons, 2);
+    await sendTelegramMessage(chatId, 
+      `📂 *Seleccionar Categoría*\n\nElegí una categoría de productos:`,
+      { reply_markup: keyboard }
+    );
+  } catch (error) {
+    console.error('Error mostrando menú categorías:', error);
+    await sendTelegramMessage(chatId, 'Error cargando categorías. Intentá de nuevo.');
+  }
+}
+
+async function mostrarMenuProductos(chatId, categoriaId) {
+  try {
+    const productos = await getDataFromSheet('Productos');
+    const productosCategoria = productos.filter(p => 
+      p.categoria_id === categoriaId && p.activo === 'SI'
+    );
+    
+    const buttons = productosCategoria.slice(0, 10).map(p => 
+      `${p.producto_nombre} - $${p.precio.toLocaleString('es-ES')}`
+    );
+    buttons.push('🔙 Cambiar Categoría');
+    
+    const keyboard = createReplyKeyboard(buttons, 1);
+    await sendTelegramMessage(chatId, 
+      `📦 *Seleccionar Producto*\n\nElegí un producto:`,
+      { reply_markup: keyboard }
+    );
+  } catch (error) {
+    console.error('Error mostrando menú productos:', error);
+    await sendTelegramMessage(chatId, 'Error cargando productos. Intentá de nuevo.');
+  }
+}
+
+// Manejar callback queries (botones inline)
+async function handleCallbackQuery(callbackQuery) {
+  const chatId = callbackQuery.message.chat.id;
+  const data = callbackQuery.data;
+  const userName = callbackQuery.from.first_name || 'Usuario';
+  
+  console.log(`🔘 Callback de ${userName} (${chatId}): ${data}`);
+  
+  // Responder al callback para quitar el "loading"
+  const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  if (TELEGRAM_BOT_TOKEN) {
+    try {
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          callback_query_id: callbackQuery.id,
+          text: '✅'
+        })
+      });
+    } catch (error) {
+      console.error('Error respondiendo callback:', error);
+    }
+  }
+  
+  // Procesar como mensaje normal
+  await handleBotMessage(chatId, data, userName);
 }
 
 // Rutas API
@@ -618,6 +863,9 @@ app.post('/webhook', async (req, res) => {
       
       // Procesar mensaje del bot
       await handleBotMessage(chatId, text, userName);
+    } else if (update.callback_query) {
+      // Manejar botones inline
+      await handleCallbackQuery(update.callback_query);
     }
 
     res.status(200).json({ ok: true });
@@ -637,7 +885,6 @@ async function setupWebhook() {
     return;
   }
 
-
   try {
     const webhookUrl = `${RAILWAY_STATIC_URL}/webhook`;
     console.log('🔧 Configurando webhook:', webhookUrl);
@@ -647,7 +894,7 @@ async function setupWebhook() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         url: webhookUrl,
-        allowed_updates: ["message"]
+        allowed_updates: ["message", "callback_query"]
       })
     });
     
