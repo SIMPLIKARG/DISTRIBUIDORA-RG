@@ -227,7 +227,9 @@ async function saveNewClient(clientData) {
     const maxId = Math.max(...clientes.map(c => c.cliente_id), 0);
     const newClient = {
       cliente_id: maxId + 1,
-      nombre: clientData.nombre
+      nombre: clientData.nombre,
+      telefono: clientData.telefono || '',
+      direccion: clientData.direccion || ''
     };
     
     await appendToSheet('Clientes', newClient);
