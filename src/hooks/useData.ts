@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Cliente, Categoria, Producto, Pedido, DetallePedido } from '../types';
+import { googleSheetsService } from '../services/googleSheetsService';
 
 // Datos de ejemplo
 const clientesIniciales: Cliente[] = [
