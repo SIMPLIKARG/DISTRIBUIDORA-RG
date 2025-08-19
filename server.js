@@ -239,6 +239,32 @@ async function manejarMensaje(message) {
     });
   }
   
+  // Manejar selección de cliente por nombre
+  if (sesion.estado === 'esperando_cliente') {
+    const clientes = await leerSheet('Clientes');
+    const clienteEncontrado = clientes.find(c => 
+      c.nombre.toLowerCase().includes(texto.toLowerCase())
+    );
+    
+    if (clienteEncontrado) {
+      sesion.clienteSeleccionado = clienteEncontrado;
+      sesion.estado = 'cliente_confirmado';
+      sesionesBot.set(userId, sesion);
+      
+      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${clienteEncontrado.nombre}\n\n¿Qué deseas hacer?`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛍️ Continuar con Pedido', callback_data: 'continuar_pedido' }],
+            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+          ]
+        }
+      });
+    } else {
+      await enviarMensaje(chatId, `❌ No encontré un cliente con "${texto}"\n\nIntenta con otro nombre o parte del nombre:`);
+    }
+    return;
+  }
+  
   // Manejar cantidad de producto
   if (sesion.estado === 'esperando_cantidad' && /^\d+$/.test(texto)) {
     const cantidad = parseInt(texto);
@@ -281,6 +307,72 @@ async function manejarCallback(callback_query) {
   const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
   if (data === 'hacer_pedido') {
+    await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
+          [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]
+        ]
+      }
+    });
+  }
+  
+  if (data === 'lista_clientes') {
+    const clientes = await leerSheet('Clientes');
+    const keyboard = clientes.slice(0, 10).map(cliente => [{ 
+      text: `👤 ${cliente.nombre}`, 
+      callback_data: `cliente_${cliente.cliente_id}` 
+    }]);
+    
+    if (clientes.length > 10) {
+      keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
+    }
+    
+    await enviarMensaje(chatId, '👥 Selecciona un cliente:', {
+      reply_markup: { inline_keyboard: keyboard }
+    });
+  }
+  
+  if (data === 'buscar_cliente') {
+    sesion.estado = 'esperando_cliente';
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, '✍️ Escribe el nombre del cliente (o parte del nombre):');
+  }
+  
+  if (data.startsWith('cliente_')) {
+    const clienteId = data.split('_')[1];
+    const clientes = await leerSheet('Clientes');
+    const cliente = clientes.find(c => c.cliente_id == clienteId);
+    
+    if (cliente) {
+      sesion.clienteSeleccionado = cliente;
+      sesion.estado = 'cliente_confirmado';
+      sesionesBot.set(userId, sesion);
+      
+      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${cliente.nombre}\n\n¿Qué deseas hacer?`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛍️ Continuar con Pedido', callback_data: 'continuar_pedido' }],
+            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+          ]
+        }
+      });
+    }
+  }
+  
+  if (data === 'seleccionar_cliente') {
+    await enviarMensaje(chatId, '👤 Selecciona el cliente para este pedido:', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
+          [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]
+        ]
+      }
+    });
+  }
+  
+  if (data === 'continuar_pedido') {
     const categorias = await leerSheet('Categorias');
     const keyboard = categorias.map(cat => [{ 
       text: cat.categoria_nombre, 
@@ -369,15 +461,27 @@ async function manejarCallback(callback_query) {
       return;
     }
     
+    if (!sesion.clienteSeleccionado) {
+      await enviarMensaje(chatId, '❌ Debes seleccionar un cliente primero', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '👤 Seleccionar Cliente', callback_data: 'seleccionar_cliente' }]
+          ]
+        }
+      });
+      return;
+    }
+    
     // Crear pedido
     const pedidoId = `PED${String(contadorPedidos++).padStart(3, '0')}`;
     const fechaHora = new Date().toLocaleString('es-AR');
-    const clienteNombre = callback_query.from.first_name || 'Cliente';
+    const clienteNombre = sesion.clienteSeleccionado.nombre;
+    const clienteId = sesion.clienteSeleccionado.cliente_id;
     
     const nuevoPedido = {
       pedido_id: pedidoId,
       fecha_hora: fechaHora,
-      cliente_id: userId,
+      cliente_id: clienteId,
       cliente_nombre: clienteNombre,
       items_cantidad: sesion.pedido.items.length,
       total: sesion.pedido.total,
@@ -390,7 +494,7 @@ async function manejarCallback(callback_query) {
     
     // Intentar guardar en Google Sheets
     await escribirSheet('Pedidos', [
-      pedidoId, fechaHora, userId, clienteNombre, 
+      pedidoId, fechaHora, clienteId, clienteNombre, 
       sesion.pedido.items.length, sesion.pedido.total, 'CONFIRMADO'
     ]);
     
