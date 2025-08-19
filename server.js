@@ -762,7 +762,7 @@ app.get('/test-sheets', async (req, res) => {
 // Dashboard web
 app.get('/', (req, res) => {
   res.send(`
-<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -777,7 +777,6 @@ app.get('/', (req, res) => {
             <p class="text-gray-600">Dashboard de gestión y estadísticas</p>
         </div>
         
-        <!-- Status -->
         <div class="bg-white rounded-lg shadow p-6 mb-8">
             <h2 class="text-xl font-bold mb-4">🔧 Estado del Sistema</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -796,7 +795,6 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Stats -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-white p-6 rounded-lg shadow">
                 <h3 class="text-lg font-semibold text-gray-700">👥 Clientes</h3>
@@ -816,7 +814,6 @@ app.get('/', (req, res) => {
             </div>
         </div>
 
-        <!-- Pedidos -->
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="text-2xl font-bold mb-4">📋 Pedidos Recientes</h2>
             <div id="pedidos" class="space-y-4">
@@ -826,112 +823,98 @@ app.get('/', (req, res) => {
     </div>
 
     <script>
-        async function cambiarEstado(pedidoId, nuevoEstado) {
-            try {
-                const response = await fetch(`/api/pedidos/${pedidoId}/estado`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ estado: nuevoEstado })
-                });
-                
+        function cambiarEstado(pedidoId, nuevoEstado) {
+            fetch('/api/pedidos/' + pedidoId + '/estado', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ estado: nuevoEstado })
+            })
+            .then(function(response) {
                 if (response.ok) {
-                    cargarDatos(); // Recargar datos
+                    cargarDatos();
                 } else {
-                    alert('Error cambiando estado del pedido');
+                    alert('Error cambiando estado');
                 }
-            } catch (error) {
-                console.error('Error:', error);
+            })
+            .catch(function(error) {
                 alert('Error de conexión');
-            }
+            });
         }
 
-        async function cargarDatos() {
-            try {
-                // Health check
-                const healthRes = await fetch('/health');
-                const health = await healthRes.json();
-                
-                document.getElementById('sheets-status').textContent = health.sheets ? '✅' : '❌';
-                document.getElementById('telegram-status').textContent = health.telegram ? '✅' : '❌';
-                document.getElementById('server-status').textContent = health.status === 'OK' ? '✅' : '❌';
+        function cargarDatos() {
+            fetch('/health')
+                .then(function(r) { return r.json(); })
+                .then(function(h) {
+                    document.getElementById('sheets-status').textContent = h.sheets ? '✅' : '❌';
+                    document.getElementById('telegram-status').textContent = h.telegram ? '✅' : '❌';
+                    document.getElementById('server-status').textContent = h.status === 'OK' ? '✅' : '❌';
+                });
 
-                // Stats
-                const statsRes = await fetch('/api/stats');
-                const stats = await statsRes.json();
-                
-                document.getElementById('totalClientes').textContent = stats.totalClientes;
-                document.getElementById('totalProductos').textContent = stats.totalProductos;
-                document.getElementById('totalPedidos').textContent = stats.totalPedidos;
-                document.getElementById('ventasTotal').textContent = '$' + stats.ventasTotal.toLocaleString();
+            fetch('/api/stats')
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    document.getElementById('totalClientes').textContent = s.totalClientes;
+                    document.getElementById('totalProductos').textContent = s.totalProductos;
+                    document.getElementById('totalPedidos').textContent = s.totalPedidos;
+                    document.getElementById('ventasTotal').textContent = '$' + s.ventasTotal.toLocaleString();
+                });
 
-                // Pedidos
-                const pedidosRes = await fetch('/api/pedidos');
-                const pedidos = await pedidosRes.json();
-                
-                const pedidosContainer = document.getElementById('pedidos');
-                if (pedidos.length === 0) {
-                    pedidosContainer.innerHTML = '<div class="text-center text-gray-500">No hay pedidos</div>';
-                } else {
-                    pedidosContainer.innerHTML = pedidos.slice(-10).reverse().map(function(pedido) {
-                        var estadoClass = '';
-                        if (pedido.estado === 'CONFIRMADO') {
-                            estadoClass = 'bg-green-100 text-green-800';
-                        } else if (pedido.estado === 'PENDIENTE') {
-                            estadoClass = 'bg-yellow-100 text-yellow-800';
-                        } else {
-                            estadoClass = 'bg-red-100 text-red-800';
-                        }
-                        
+            fetch('/api/pedidos')
+                .then(function(r) { return r.json(); })
+                .then(function(pedidos) {
+                    var container = document.getElementById('pedidos');
+                    if (pedidos.length === 0) {
+                        container.innerHTML = '<div class="text-center text-gray-500">No hay pedidos</div>';
+                        return;
+                    }
+                    
+                    var html = '';
+                    var recientes = pedidos.slice(-10).reverse();
+                    
+                    for (var i = 0; i < recientes.length; i++) {
+                        var p = recientes[i];
+                        var clase = '';
                         var botones = '';
-                        if (pedido.estado === 'PENDIENTE') {
-                            botones = '<button onclick="cambiarEstado(\'' + pedido.pedido_id + '\', \'CONFIRMADO\')" ' +
-                                     'class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">' +
-                                     '✓ Confirmar</button>' +
-                                     '<button onclick="cambiarEstado(\'' + pedido.pedido_id + '\', \'CANCELADO\')" ' +
-                                     'class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">' +
-                                     '✗ Cancelar</button>';
+                        
+                        if (p.estado === 'CONFIRMADO') {
+                            clase = 'bg-green-100 text-green-800';
+                        } else if (p.estado === 'PENDIENTE') {
+                            clase = 'bg-yellow-100 text-yellow-800';
+                            botones = '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CONFIRMADO\\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded mr-1">✓</button>' +
+                                     '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CANCELADO\\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded">✗</button>';
+                        } else {
+                            clase = 'bg-red-100 text-red-800';
                         }
                         
-                        return '<div class="flex justify-between items-center p-4 border rounded-lg">' +
-                               '<div>' +
-                               '<h3 class="font-semibold">' + pedido.pedido_id + ' - ' + pedido.cliente_nombre + '</h3>' +
-                               '<p class="text-gray-600">' + pedido.fecha_hora + ' - ' + (pedido.items_cantidad || 0) + ' items</p>' +
-                               '</div>' +
-                               '<div class="text-right">' +
-                               '<p class="font-bold">$' + parseInt(pedido.total || 0).toLocaleString() + '</p>' +
+                        html += '<div class="flex justify-between items-center p-4 border rounded-lg">' +
+                               '<div><h3 class="font-semibold">' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
+                               '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
+                               '<div class="text-right"><p class="font-bold">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
                                '<div class="flex items-center gap-2 mt-1">' +
-                               '<span class="px-2 py-1 rounded text-sm ' + estadoClass + '">' +
-                               pedido.estado +
-                               '</span>' +
-                               botones +
-                               '</div>' +
-                               '</div>' +
-                               '</div>';
-                    }).join('');
-                
-            } catch (error) {
-                console.error('Error cargando datos:', error);
-                document.getElementById('pedidos').innerHTML = '<div class="text-center text-red-500">Error cargando datos</div>';
-            }
+                               '<span class="px-2 py-1 rounded text-sm ' + clase + '">' + p.estado + '</span>' +
+                               botones + '</div></div></div>';
+                    }
+                    
+                    container.innerHTML = html;
+                })
+                .catch(function() {
+                    document.getElementById('pedidos').innerHTML = '<div class="text-center text-red-500">Error cargando datos</div>';
+                });
         }
 
-        // Cargar al inicio
         cargarDatos();
-        
-        // Recargar cada 10 segundos
         setInterval(cargarDatos, 10000);
     </script>
 </body>
-</html>
-  `);
+</html>`;
+  
+  res.send(html);
 });
 
 // Iniciar servidor
 app.listen(PORT, async () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(`🌐 Dashboard: http://localhost:${PORT}`);
+  console.log('🚀 Servidor corriendo en puerto ' + PORT);
+  console.log('🌐 Dashboard: http://localhost:' + PORT);
   
   // Verificar Google Sheets al iniciar
   await verificarGoogleSheets();
