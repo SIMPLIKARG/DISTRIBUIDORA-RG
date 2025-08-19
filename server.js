@@ -169,6 +169,11 @@ app.get('/api/pedidos', async (req, res) => {
   res.json(pedidos);
 });
 
+app.get('/api/detallepedidos', async (req, res) => {
+  const detalles = await leerSheet('DetallePedidos');
+  res.json(detalles);
+});
+
 app.get('/api/stats', async (req, res) => {
   const clientes = await leerSheet('Clientes');
   const productos = await leerSheet('Productos');
@@ -274,6 +279,7 @@ async function manejarMensaje(message) {
       const importe = producto.precio * cantidad;
       sesion.pedido.items.push({
         producto_id: producto.producto_id,
+        categoria_id: producto.categoria_id,
         nombre: producto.producto_nombre,
         precio: producto.precio,
         cantidad: cantidad,
@@ -497,6 +503,23 @@ async function manejarCallback(callback_query) {
       pedidoId, fechaHora, clienteId, clienteNombre, 
       sesion.pedido.items.length, sesion.pedido.total, 'CONFIRMADO'
     ]);
+    
+    // Guardar detalles del pedido en DetallePedidos
+    for (let i = 0; i < sesion.pedido.items.length; i++) {
+      const item = sesion.pedido.items[i];
+      const detalleId = `DET${String(contadorPedidos).padStart(3, '0')}_${i + 1}`;
+      
+      await escribirSheet('DetallePedidos', [
+        detalleId,
+        pedidoId,
+        item.producto_id,
+        item.nombre,
+        item.categoria_id || 1, // Categoria por defecto si no existe
+        item.cantidad,
+        item.precio,
+        item.importe
+      ]);
+    }
     
     // Limpiar sesión
     sesionesBot.set(userId, { estado: 'inicio', pedido: { items: [], total: 0 } });
