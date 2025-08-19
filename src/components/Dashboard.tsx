@@ -3,10 +3,11 @@ import { TrendingUp, Package, Users, DollarSign, ShoppingCart, AlertCircle, Cale
 import { useData } from '../hooks/useData';
 
 const Dashboard: React.FC = () => {
-  const { pedidos, productos, clientes } = useData();
+  const { pedidos, productos, clientes, loading, error, loadData } = useData();
 
   // Calcular estadísticas
   const pedidosConfirmados = pedidos.filter(p => p.estado === 'CONFIRMADO');
+  const pedidosPendientes = pedidos.filter(p => p.estado === 'PENDIENTE');
   const totalVentas = pedidosConfirmados.reduce((sum, p) => sum + p.total, 0);
   const pedidosHoy = pedidosConfirmados.filter(p => {
     const hoy = new Date().toDateString();
@@ -15,7 +16,6 @@ const Dashboard: React.FC = () => {
   });
   const ventasHoy = pedidosHoy.reduce((sum, p) => sum + p.total, 0);
   const productosActivos = productos.filter(p => p.activo === 'SI').length;
-  const pedidosPendientes = pedidos.filter(p => p.estado === 'BORRADOR').length;
 
   // Datos para el gráfico de ventas de los últimos 7 días
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -43,6 +43,40 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-center space-x-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            <div>
+              <h4 className="font-semibold text-blue-800">Cargando datos...</h4>
+              <p className="text-blue-700">Obteniendo información desde Google Sheets</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <AlertCircle className="w-5 h-5 text-red-600" />
+              <div>
+                <h4 className="font-semibold text-red-800">Error cargando datos</h4>
+                <p className="text-red-700">{error}</p>
+              </div>
+            </div>
+            <button
+              onClick={loadData}
+              className="px-3 py-1 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Título */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
@@ -99,14 +133,14 @@ const Dashboard: React.FC = () => {
         <div className="bg-white rounded-xl p-6 shadow-sm border hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Clientes Registrados</p>
+              <p className="text-sm font-medium text-gray-600">Pedidos Pendientes</p>
               <p className="text-2xl font-bold text-gray-900 mt-1">
-                {clientes.length}
+                {pedidosPendientes.length}
               </p>
-              <p className="text-sm text-orange-600 mt-1">+5.1% vs mes anterior</p>
+              <p className="text-sm text-orange-600 mt-1">Requieren confirmación</p>
             </div>
             <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-orange-600" />
+              <AlertCircle className="w-6 h-6 text-orange-600" />
             </div>
           </div>
         </div>
@@ -125,14 +159,14 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Alertas */}
-      {pedidosPendientes > 0 && (
+      {pedidosPendientes.length > 0 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
           <div className="flex items-center space-x-3">
             <AlertCircle className="w-5 h-5 text-yellow-600" />
             <div>
               <h4 className="font-semibold text-yellow-800">Pedidos Pendientes</h4>
               <p className="text-yellow-700">
-                Tienes {pedidosPendientes} pedidos en borrador que necesitan confirmación.
+                Tienes {pedidosPendientes.length} pedidos pendientes que necesitan confirmación.
               </p>
             </div>
           </div>
@@ -181,7 +215,7 @@ const Dashboard: React.FC = () => {
           </div>
           
           <div className="space-y-4">
-            {pedidosConfirmados.slice(0, 5).map((pedido) => (
+            {pedidos.slice(0, 5).map((pedido) => (
               <div key={pedido.pedido_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -190,6 +224,9 @@ const Dashboard: React.FC = () => {
                   <div>
                     <p className="font-medium text-gray-900">#{pedido.pedido_id}</p>
                     <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <span className={`px-2 py-1 rounded-full text-xs ${
+                        pedido.estado === 'PENDIENTE' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                      }`}>{pedido.estado}</span>
                       <Users className="w-3 h-3" />
                       <span>{pedido.cliente_nombre}</span>
                     </div>
@@ -207,7 +244,7 @@ const Dashboard: React.FC = () => {
             ))}
           </div>
 
-          {pedidosConfirmados.length === 0 && (
+          {pedidos.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />
               <p>No hay pedidos recientes</p>

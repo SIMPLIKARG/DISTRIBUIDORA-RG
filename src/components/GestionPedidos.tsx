@@ -4,7 +4,7 @@ import { useData } from '../hooks/useData';
 import { Pedido } from '../types';
 
 const GestionPedidos: React.FC = () => {
-  const { pedidos, detallePedidos } = useData();
+  const { pedidos, detallePedidos, loading, error, loadData, updatePedido } = useData();
   const [filtroEstado, setFiltroEstado] = useState<string>('TODOS');
   const [busqueda, setBusqueda] = useState('');
   const [pedidoSeleccionado, setPedidoSeleccionado] = useState<Pedido | null>(null);
@@ -20,7 +20,7 @@ const GestionPedidos: React.FC = () => {
     switch (estado) {
       case 'CONFIRMADO':
         return 'bg-green-100 text-green-800';
-      case 'BORRADOR':
+      case 'PENDIENTE':
         return 'bg-yellow-100 text-yellow-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -33,6 +33,24 @@ const GestionPedidos: React.FC = () => {
 
   const cerrarDetalle = () => {
     setPedidoSeleccionado(null);
+  };
+
+  const confirmarPedido = async (pedido: Pedido) => {
+    try {
+      await updatePedido(pedido.pedido_id, { estado: 'CONFIRMADO' });
+      console.log('✅ Pedido confirmado:', pedido.pedido_id);
+    } catch (error) {
+      console.error('❌ Error confirmando pedido:', error);
+    }
+  };
+
+  const cancelarPedido = async (pedido: Pedido) => {
+    try {
+      await updatePedido(pedido.pedido_id, { estado: 'CANCELADO' });
+      console.log('❌ Pedido cancelado:', pedido.pedido_id);
+    } catch (error) {
+      console.error('❌ Error cancelando pedido:', error);
+    }
   };
 
   const detallesPedidoSeleccionado = pedidoSeleccionado 
@@ -70,8 +88,9 @@ const GestionPedidos: React.FC = () => {
               className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="TODOS">Todos los estados</option>
-              <option value="BORRADOR">Borrador</option>
+              <option value="PENDIENTE">Pendiente</option>
               <option value="CONFIRMADO">Confirmado</option>
+              <option value="CANCELADO">Cancelado</option>
             </select>
           </div>
         </div>
@@ -160,12 +179,24 @@ const GestionPedidos: React.FC = () => {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button
-                        className="text-red-600 hover:text-red-900 p-1 rounded"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {pedido.estado === 'PENDIENTE' && (
+                        <>
+                          <button
+                            onClick={() => confirmarPedido(pedido)}
+                            className="text-green-600 hover:text-green-900 p-1 rounded"
+                            title="Confirmar pedido"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => cancelarPedido(pedido)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded"
+                            title="Cancelar pedido"
+                          >
+                            ✗
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>

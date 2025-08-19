@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useEffect } from 'react';
 import { Cliente, Categoria, Producto, Pedido, DetallePedido } from '../types';
 
 // Datos de ejemplo realistas para Argentina
@@ -235,11 +236,107 @@ const detallePedidosIniciales: DetallePedido[] = [
 ];
 
 export const useData = () => {
-  const [clientes] = useState<Cliente[]>(clientesIniciales);
-  const [categorias] = useState<Categoria[]>(categoriasIniciales);
-  const [productos] = useState<Producto[]>(productosIniciales);
+  const [clientes, setClientes] = useState<Cliente[]>(clientesIniciales);
+  const [categorias, setCategorias] = useState<Categoria[]>(categoriasIniciales);
+  const [productos, setProductos] = useState<Producto[]>(productosIniciales);
   const [pedidos, setPedidos] = useState<Pedido[]>(pedidosIniciales);
   const [detallePedidos, setDetallePedidos] = useState<DetallePedido[]>(detallePedidosIniciales);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Función para cargar datos desde la API
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Cargar todos los datos en paralelo
+      const [
+        clientesRes,
+        categoriasRes,
+        productosRes,
+        pedidosRes,
+        detallesRes
+      ] = await Promise.all([
+        fetch('/api/clientes'),
+        fetch('/api/categorias'),
+        fetch('/api/productos'),
+        fetch('/api/pedidos'),
+        fetch('/api/detalle-pedidos')
+      ]);
+
+      // Verificar que todas las respuestas sean exitosas
+      if (!clientesRes.ok || !categoriasRes.ok || !productosRes.ok || !pedidosRes.ok || !detallesRes.ok) {
+        throw new Error('Error cargando datos del servidor');
+      }
+
+      // Parsear los datos
+      const [
+        clientesData,
+        categoriasData,
+        productosData,
+        pedidosData,
+        detallesData
+      ] = await Promise.all([
+        clientesRes.json(),
+        categoriasRes.json(),
+        productosRes.json(),
+        pedidosRes.json(),
+        detallesRes.json()
+      ]);
+
+      // Actualizar estados
+      setClientes(clientesData.length > 0 ? clientesData : clientesIniciales);
+      setCategorias(categoriasData.length > 0 ? categoriasData : categoriasIniciales);
+      setProductos(productosData.length > 0 ? productosData : productosIniciales);
+      setPedidos(pedidosData.length > 0 ? pedidosData : pedidosIniciales);
+      setDetallePedidos(detallesData.length > 0 ? detallesData : detallePedidosIniciales);
+
+      console.log('✅ Datos cargados desde API:', {
+        clientes: clientesData.length,
+        categorias: categoriasData.length,
+        productos: productosData.length,
+        pedidos: pedidosData.length,
+        detalles: detallesData.length
+      });
+
+    } catch (error) {
+      console.error('❌ Error cargando datos:', error);
+      setError(error instanceof Error ? error.message : 'Error desconocido');
+      
+      // Usar datos iniciales como fallback
+      setClientes(clientesIniciales);
+      setCategorias(categoriasIniciales);
+      setProductos(productosIniciales);
+      setPedidos(pedidosIniciales);
+      setDetallePedidos(detallePedidosIniciales);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Cargar datos al montar el componente
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Función para actualizar un pedido
+  const updatePedido = useCallback(async (pedidoId: string, updates: Partial<Pedido>) => {
+    try {
+      // Actualizar localmente primero
+      setPedidos(prev => prev.map(p => 
+        p.pedido_id === pedidoId ? { ...p, ...updates } : p
+      ));
+
+      // TODO: Implementar actualización en el servidor
+      console.log('📝 Pedido actualizado:', pedidoId, updates);
+      
+    } catch (error) {
+      console.error('❌ Error actualizando pedido:', error);
+      // Recargar datos en caso de error
+      loadData();
+    }
+  }, [loadData]);
 
   const addPedido = useCallback((pedido: Pedido) => {
     setPedidos(prev => {
@@ -263,6 +360,10 @@ export const useData = () => {
     productos,
     pedidos,
     detallePedidos,
+    loading,
+    error,
+    loadData,
+    updatePedido,
     addPedido,
     addDetallePedido
   };

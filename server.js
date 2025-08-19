@@ -584,7 +584,7 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
             cliente_nombre: session.clienteSeleccionado.nombre,
             items_cantidad: session.carrito.length,
             total: session.total,
-            estado: 'CONFIRMADO'
+            estado: 'PENDIENTE'
           };
 
           // Guardar en Google Sheets o memoria
@@ -601,7 +601,7 @@ async function handleBotMessage(chatId, message, userName = 'Usuario') {
 
           const keyboard = createReplyKeyboard(['🛒 Nuevo Pedido', '📋 Ver Ayuda'], 1);
           await sendTelegramMessage(chatId, 
-            `🎉 *¡Pedido Confirmado!*\n\n👤 *Cliente:* ${session.clienteSeleccionado.nombre}\n📦 *Productos:*\n${carritoTexto}\n\n💰 *Total: $${session.total.toLocaleString('es-ES')}*\n🆔 *ID:* ${session.pedidoId}\n\n✅ Tu pedido ha sido guardado exitosamente.\n\n¡Gracias por tu compra!`,
+            `📋 *¡Pedido Enviado!*\n\n👤 *Cliente:* ${session.clienteSeleccionado.nombre}\n📦 *Productos:*\n${carritoTexto}\n\n💰 *Total: $${session.total.toLocaleString('es-ES')}*\n🆔 *ID:* ${session.pedidoId}\n\n⏳ Tu pedido está *PENDIENTE* de confirmación.\n\nSerá revisado y confirmado desde el dashboard.\n\n¡Gracias!`,
             { reply_markup: keyboard }
           );
           
