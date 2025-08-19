@@ -1052,11 +1052,11 @@ app.get('/', (req, res) => {
                     html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">';
                     html += '<div>';
                     html += '<div class="font-medium">' + (detalle.producto_nombre || 'Producto sin nombre') + '</div>';
-                    html += '<div class="text-sm text-gray-600">Cantidad: ' + (detalle.cantidad || 0) + ' x $' + parseInt(detalle.precio_unitario || 0).toLocaleString() + '</div>';
-                    html += '</div>';
-                    html += '<div class="font-bold">$' + parseInt(detalle.importe || 0).toLocaleString() + '</div>';
-                    html += '</div>';
-                }
+                var errorMsg = '<div class="text-center text-red-500 p-4 border border-red-300 rounded">';
+                errorMsg += '<h3 class="font-bold">Error cargando datos</h3>';
+                errorMsg += '<p class="text-sm mt-2">' + error.message + '</p>';
+                errorMsg += '<p class="text-xs mt-1 text-gray-600">Revisa la consola para más detalles</p>';
+                errorMsg += '</div>';
                 
                 html += '</div>';
                 html += '</div>';
