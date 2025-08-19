@@ -215,6 +215,34 @@ app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
   }
 });
 
+// API para obtener detalle de un pedido específico
+app.get('/api/pedidos/:pedidoId/detalle', async (req, res) => {
+  try {
+    const { pedidoId } = req.params;
+    
+    // Obtener pedido
+    const pedidos = await leerSheet('Pedidos');
+    const pedido = pedidos.find(p => p.pedido_id === pedidoId);
+    
+    if (!pedido) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+    
+    // Obtener detalles del pedido
+    const detalles = await leerSheet('DetallePedidos');
+    const detallesPedido = detalles.filter(d => d.pedido_id === pedidoId);
+    
+    res.json({
+      pedido: pedido,
+      detalles: detallesPedido
+    });
+    
+  } catch (error) {
+    console.error('Error obteniendo detalle del pedido:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
 // Telegram Bot
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_URL = process.env.RAILWAY_STATIC_URL ? `${process.env.RAILWAY_STATIC_URL}/webhook` : null;
@@ -836,6 +864,26 @@ app.get('/', (req, res) => {
                 <div class="text-center text-gray-500">Cargando...</div>
             </div>
         </div>
+        
+        <!-- Modal para detalle del pedido -->
+        <div id="modalDetalle" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-xl font-bold" id="modalTitulo">Detalle del Pedido</h3>
+                            <button onclick="cerrarModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                        </div>
+                        <div id="modalContenido" class="space-y-4">
+                            <!-- Contenido del pedido se carga aquí -->
+                        </div>
+                        <div class="mt-6 flex justify-end space-x-2">
+                            <button onclick="cerrarModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Cerrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -857,6 +905,86 @@ app.get('/', (req, res) => {
             });
         }
 
+        function verDetallePedido(pedidoId) {
+            fetch('/api/pedidos/' + pedidoId + '/detalle')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.error) {
+                        alert('Error: ' + data.error);
+                        return;
+                    }
+                    
+                    mostrarModalDetalle(data.pedido, data.detalles);
+                })
+                .catch(function(error) {
+                    alert('Error cargando detalle del pedido');
+                });
+        }
+        
+        function mostrarModalDetalle(pedido, detalles) {
+            var modal = document.getElementById('modalDetalle');
+            var titulo = document.getElementById('modalTitulo');
+            var contenido = document.getElementById('modalContenido');
+            
+            titulo.textContent = 'Pedido ' + pedido.pedido_id;
+            
+            var estadoClass = '';
+            if (pedido.estado === 'CONFIRMADO') {
+                estadoClass = 'bg-green-100 text-green-800';
+            } else if (pedido.estado === 'PENDIENTE') {
+                estadoClass = 'bg-yellow-100 text-yellow-800';
+            } else {
+                estadoClass = 'bg-red-100 text-red-800';
+            }
+            
+            var html = '<div class="bg-gray-50 p-4 rounded-lg mb-4">' +
+                      '<div class="grid grid-cols-2 gap-4">' +
+                      '<div><strong>Cliente:</strong> ' + pedido.cliente_nombre + '</div>' +
+                      '<div><strong>Fecha:</strong> ' + pedido.fecha_hora + '</div>' +
+                      '<div><strong>Items:</strong> ' + (pedido.items_cantidad || 0) + '</div>' +
+                      '<div><strong>Total:</strong> $' + parseInt(pedido.total || 0).toLocaleString() + '</div>' +
+                      '</div>' +
+                      '<div class="mt-2">' +
+                      '<span class="px-2 py-1 rounded text-sm ' + estadoClass + '">' + pedido.estado + '</span>' +
+                      '</div>' +
+                      '</div>';
+            
+            if (detalles && detalles.length > 0) {
+                html += '<div class="border-t pt-4">' +
+                       '<h4 class="font-semibold mb-3">📦 Productos:</h4>' +
+                       '<div class="space-y-2">';
+                
+                for (var i = 0; i < detalles.length; i++) {
+                    var detalle = detalles[i];
+                    html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">' +
+                           '<div>' +
+                           '<div class="font-medium">' + detalle.producto_nombre + '</div>' +
+                           '<div class="text-sm text-gray-600">Cantidad: ' + detalle.cantidad + ' x $' + parseInt(detalle.precio_unitario || 0).toLocaleString() + '</div>' +
+                           '</div>' +
+                           '<div class="font-bold">$' + parseInt(detalle.importe || 0).toLocaleString() + '</div>' +
+                           '</div>';
+                }
+                
+                html += '</div></div>';
+            } else {
+                html += '<div class="text-center text-gray-500 py-4">No hay detalles disponibles para este pedido</div>';
+            }
+            
+            contenido.innerHTML = html;
+            modal.classList.remove('hidden');
+        }
+        
+        function cerrarModal() {
+            var modal = document.getElementById('modalDetalle');
+            modal.classList.add('hidden');
+        }
+        
+        // Cerrar modal al hacer clic fuera
+        document.getElementById('modalDetalle').addEventListener('click', function(e) {
+            if (e.target === this) {
+                cerrarModal();
+            }
+        });
         function cargarDatos() {
             fetch('/health')
                 .then(function(r) { return r.json(); })
@@ -903,7 +1031,7 @@ app.get('/', (req, res) => {
                         }
                         
                         html += '<div class="flex justify-between items-center p-4 border rounded-lg">' +
-                               '<div><h3 class="font-semibold">' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
+                               '<div><h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\\'' + p.pedido_id + '\\')">📋 ' + p.pedido_id + ' - ' + p.cliente_nombre + '</h3>' +
                                '<p class="text-gray-600">' + p.fecha_hora + ' - ' + (p.items_cantidad || 0) + ' items</p></div>' +
                                '<div class="text-right"><p class="font-bold">$' + parseInt(p.total || 0).toLocaleString() + '</p>' +
                                '<div class="flex items-center gap-2 mt-1">' +
