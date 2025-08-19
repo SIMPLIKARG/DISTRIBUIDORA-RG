@@ -185,9 +185,6 @@ app.get('/api/productos', async (req, res) => {
 app.get('/api/pedidos', async (req, res) => {
   try {
     let pedidos = await leerSheet('Pedidos');
-    if (pedidosEnMemoria.length > 0) {
-      pedidos = [...pedidos, ...pedidosEnMemoria];
-    }
     res.json(pedidos);
   } catch (error) {
     console.error('Error obteniendo pedidos:', error);
@@ -200,11 +197,6 @@ app.get('/api/stats', async (req, res) => {
     const clientes = await leerSheet('Clientes');
     const productos = await leerSheet('Productos');
     let pedidos = await leerSheet('Pedidos');
-    
-    // Combinar con pedidos en memoria
-    if (pedidosEnMemoria.length > 0) {
-      pedidos = [...pedidos, ...pedidosEnMemoria];
-    }
     
     const stats = {
       totalClientes: clientes.length,
@@ -871,15 +863,18 @@ app.get('/test-sheets', async (req, res) => {
     });
   }
 });
+
 // Dashboard web
 app.get('/', (req, res) => {
   const html = `
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Distribuidora Bot</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto p-6">
@@ -984,7 +979,7 @@ app.get('/', (req, res) => {
                 if (response.ok) {
                     cargarDatos();
                 } else {
-                    alert('Error cambiando estado');
+                    var htmlPendientes = '';
                 }
             })
             .catch(function(error) {
@@ -1024,35 +1019,47 @@ app.get('/', (req, res) => {
                 estadoClass = 'bg-red-100 text-red-800';
             }
             
-            var html = '<div class="bg-gray-50 p-4 rounded-lg mb-4">' +
-                      '<div class="grid grid-cols-2 gap-4">' +
-                      '<div><strong>Cliente:</strong> ' + pedido.cliente_nombre + '</div>' +
-                      '<div><strong>Fecha:</strong> ' + pedido.fecha_hora + '</div>' +
-                      '<div><strong>Items:</strong> ' + (pedido.items_cantidad || 0) + '</div>' +
-                      '<div><strong>Total:</strong> $' + parseInt(pedido.total || 0).toLocaleString() + '</div>' +
-                      '</div>' +
-                      '<div class="mt-2">' +
-                      '<span class="px-2 py-1 rounded text-sm ' + estadoClass + '">' + pedido.estado + '</span>' +
-                      '</div>' +
-                      '</div>';
+            var html = '<div class="bg-gray-50 p-4 rounded-lg mb-4">';
+            html += '<div class="grid grid-cols-2 gap-4">';
+            html += '<div><strong>Cliente:</strong> ' + (pedido.cliente_nombre || 'Sin nombre') + '</div>';
+            html += '<div><strong>Fecha:</strong> ' + (pedido.fecha_hora || 'Sin fecha') + '</div>';
+            html += '<div><strong>Items:</strong> ' + (pedido.items_cantidad || 0) + '</div>';
+            html += '<div><strong>Total:</strong> $' + parseInt(pedido.total || 0).toLocaleString() + '</div>';
+            html += '</div>';
+            html += '<div class="mt-2">';
+            html += '<span class="px-2 py-1 rounded text-sm ' + estadoClass + '">' + pedido.estado + '</span>';
+            html += '</div>';
+            html += '</div>';
             
             if (detalles && detalles.length > 0) {
-                html += '<div class="border-t pt-4">' +
-                       '<h4 class="font-semibold mb-3">📦 Productos:</h4>' +
-                       '<div class="space-y-2">';
-                
-                for (var i = 0; i < detalles.length; i++) {
-                    var detalle = detalles[i];
-                    html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">' +
-                           '<div>' +
-                           '<div class="font-medium">' + detalle.producto_nombre + '</div>' +
-                           '<div class="text-sm text-gray-600">Cantidad: ' + detalle.cantidad + ' x $' + parseInt(detalle.precio_unitario || 0).toLocaleString() + '</div>' +
-                           '</div>' +
-                           '<div class="font-bold">$' + parseInt(detalle.importe || 0).toLocaleString() + '</div>' +
-                           '</div>';
+                html += '<div class="border-t pt-4">';
+                html += '<h4 class="font-semibold mb-3">📦 Productos:</h4>';
+                html += '<div class="space-y-2">';
+                        var clienteNombre = p.cliente_nombre || 'Sin nombre';
+                        var fechaHora = p.fecha_hora || 'Sin fecha';
+                        var itemsCantidad = p.items_cantidad || 0;
+                        var total = parseInt(p.total || 0);
+                        
+                        htmlPendientes += '<div class="flex justify-between items-center p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg">';
+                        htmlPendientes += '<div>';
+                        htmlPendientes += '<h3 class="font-semibold cursor-pointer text-blue-600 hover:text-blue-800" onclick="verDetallePedido(\'' + pedidoId + '\')">📋 ' + pedidoId + ' - ' + clienteNombre + '</h3>';
+                        htmlPendientes += '<p class="text-gray-600">' + fechaHora + ' - ' + itemsCantidad + ' items</p>';
+                        htmlPendientes += '</div>';
+                        htmlPendientes += '<div class="text-right">';
+                        htmlPendientes += '<p class="font-bold text-lg">$' + total.toLocaleString() + '</p>';
+                        htmlPendientes += '<div class="flex items-center gap-2 mt-2">';
+                        htmlPendientes += '<span class="px-2 py-1 rounded text-sm bg-yellow-100 text-yellow-800">⏳ PENDIENTE</span>';
+                    html += '<div class="flex justify-between items-center p-3 bg-gray-50 rounded">';
+                    html += '<div>';
+                    html += '<div class="font-medium">' + (detalle.producto_nombre || 'Producto sin nombre') + '</div>';
+                    html += '<div class="text-sm text-gray-600">Cantidad: ' + (detalle.cantidad || 0) + ' x $' + parseInt(detalle.precio_unitario || 0).toLocaleString() + '</div>';
+                    html += '</div>';
+                    html += '<div class="font-bold">$' + parseInt(detalle.importe || 0).toLocaleString() + '</div>';
+                    html += '</div>';
                 }
                 
-                html += '</div></div>';
+                html += '</div>';
+                html += '</div>';
             } else {
                 html += '<div class="text-center text-gray-500 py-4">No hay detalles disponibles para este pedido</div>';
             }
@@ -1074,73 +1081,26 @@ app.get('/', (req, res) => {
         });
         
         function cargarDatos() {
-            console.log('🚀 Iniciando carga de datos...');
-            
-            // 1. Cargar estado del sistema
-            console.log('🏥 Verificando health check...');
             fetch('/health')
-                .then(function(response) {
-                    console.log('Health response status:', response.status);
-                    if (!response.ok) {
-                        throw new Error('Health check failed: ' + response.status);
-                    }
-                    return response.json();
-                })
-                .then(function(health) {
-                    console.log('✅ Health data:', health);
-                    document.getElementById('sheets-status').textContent = health.sheets ? '✅' : '❌';
-                    document.getElementById('telegram-status').textContent = health.telegram ? '✅' : '❌';
-                    document.getElementById('server-status').textContent = health.status === 'OK' ? '✅' : '❌';
-                })
-                .catch(function(error) {
-                    console.error('❌ Health check error:', error);
-                    document.getElementById('sheets-status').textContent = '❌';
-                    document.getElementById('telegram-status').textContent = '❌';
-                    document.getElementById('server-status').textContent = '❌';
+                .then(function(r) { return r.json(); })
+                .then(function(h) {
+                    document.getElementById('sheets-status').textContent = h.sheets ? '✅' : '❌';
+                    document.getElementById('telegram-status').textContent = h.telegram ? '✅' : '❌';
+                    document.getElementById('server-status').textContent = h.status === 'OK' ? '✅' : '❌';
                 });
 
-            // 2. Cargar estadísticas
-            console.log('📊 Cargando estadísticas...');
             fetch('/api/stats')
-                .then(function(response) {
-                    console.log('Stats response status:', response.status);
-                    if (!response.ok) {
-                        return response.text().then(function(text) {
-                            throw new Error('Stats failed (' + response.status + '): ' + text);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(function(stats) {
-                    console.log('✅ Stats data:', stats);
-                    document.getElementById('totalClientes').textContent = stats.totalClientes || 0;
-                    document.getElementById('totalProductos').textContent = stats.totalProductos || 0;
-                    document.getElementById('totalPedidos').textContent = stats.totalPedidos || 0;
-                    document.getElementById('ventasTotal').textContent = '$' + (stats.ventasTotal || 0).toLocaleString();
-                })
-                .catch(function(error) {
-                    console.error('❌ Stats error:', error);
-                    document.getElementById('totalClientes').textContent = 'Error';
-                    document.getElementById('totalProductos').textContent = 'Error';
-                    document.getElementById('totalPedidos').textContent = 'Error';
-                    document.getElementById('ventasTotal').textContent = 'Error';
+                .then(function(r) { return r.json(); })
+                .then(function(s) {
+                    document.getElementById('totalClientes').textContent = s.totalClientes;
+                    document.getElementById('totalProductos').textContent = s.totalProductos;
+                    document.getElementById('totalPedidos').textContent = s.totalPedidos;
+                    document.getElementById('ventasTotal').textContent = '$' + s.ventasTotal.toLocaleString();
                 });
 
-            // 3. Cargar pedidos
-            console.log('🛒 Cargando pedidos...');
             fetch('/api/pedidos')
-                .then(function(response) {
-                    console.log('Pedidos response status:', response.status);
-                    if (!response.ok) {
-                        return response.text().then(function(text) {
-                            throw new Error('Pedidos failed (' + response.status + '): ' + text);
-                        });
-                    }
-                    return response.json();
-                })
+                .then(function(r) { return r.json(); })
                 .then(function(pedidos) {
-                    console.log('✅ Pedidos data:', pedidos);
-                    
                     // Filtrar pedidos cancelados
                     var pedidosActivos = pedidos.filter(function(p) {
                         return p.estado !== 'CANCELADO';
@@ -1158,13 +1118,6 @@ app.get('/', (req, res) => {
                     // Contar cancelados para estadística
                     var cancelados = pedidos.filter(function(p) {
                         return p.estado === 'CANCELADO';
-                    });
-                    
-                    console.log('📋 Pedidos procesados:', {
-                        total: pedidos.length,
-                        pendientes: pendientes.length,
-                        confirmados: confirmados.length,
-                        cancelados: cancelados.length
                     });
                     
                     document.getElementById('pedidosCancelados').textContent = cancelados.length;
@@ -1209,26 +1162,13 @@ app.get('/', (req, res) => {
                         containerConfirmados.innerHTML = htmlConfirmados;
                     }
                 })
-                .catch(function(error) {
-                    console.error('❌ Pedidos error:', error);
-                    
-                    var errorMsg = '<div class="text-center text-red-500 p-4 border border-red-300 rounded">' +
-                        '<h3 class="font-bold">Error cargando pedidos</h3>' +
-                        '<p class="text-sm mt-2">' + error.message + '</p>' +
-                        '<p class="text-xs mt-1 text-gray-600">Revisa la consola para más detalles</p>' +
-                        '</div>';
-                    
-                    document.getElementById('pedidosPendientes').innerHTML = errorMsg;
-                    document.getElementById('pedidosConfirmados').innerHTML = errorMsg;
+                .catch(function() {
+                    document.getElementById('pedidosPendientes').innerHTML = '<div class="text-center text-red-500">Error cargando pedidos pendientes</div>';
+                    document.getElementById('pedidosConfirmados').innerHTML = '<div class="text-center text-red-500">Error cargando pedidos confirmados</div>';
                 });
         }
 
-        // Cargar al inicio
-        console.log('🚀 Iniciando dashboard...');
         cargarDatos();
-        
-        // Recargar cada 10 segundos
-        console.log('⏰ Configurando auto-refresh cada 10 segundos');
         setInterval(cargarDatos, 10000);
     </script>
 </body>
