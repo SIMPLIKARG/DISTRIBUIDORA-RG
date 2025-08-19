@@ -13,9 +13,20 @@
     "railway:setup": "node scripts/railway-setup.js",
     "railway:health": "curl $RAILWAY_STATIC_URL/health",
     "railway:logs": "railway logs --follow"
-+    "express": "^4.18.2",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build",
+    "build:server": "tsc src/server.ts --outDir dist/server --target es2020 --module commonjs --esModuleInterop --allowSyntheticDefaultImports --resolveJsonModule --skipLibCheck",
 +    "cors": "^2.8.5",
-+    "helmet": "^7.1.0"
+    "start": "node dist/server/server.js",
+    "railway:setup": "node scripts/railway-setup.js",
+    "railway:health": "curl $RAILWAY_STATIC_URL/health",
+    "railway:logs": "railway logs --follow"
+    "lucide-react": "^0.263.1",
+    "googleapis": "^128.0.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0"
    },
    "devDependencies": {
      "@types/react": "^18.2.15",
