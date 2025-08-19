@@ -899,11 +899,11 @@ app.get('/', (req, res) => {
                                                 class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">
                                             ✗ Cancelar
                                         </button>
-                                    \` : ''}
+                                    \` : \'\'}
                                 </div>
                             </div>
                         </div>
-                    \`).join('');
+                    \`).join(\'\');
                 }
                 
             } catch (error) {
