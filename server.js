@@ -828,7 +828,7 @@ app.get('/', (req, res) => {
     <script>
         async function cambiarEstado(pedidoId, nuevoEstado) {
             try {
-                const response = await fetch(\`/api/pedidos/\${pedidoId}/estado\`, {
+                const response = await fetch(`/api/pedidos/${pedidoId}/estado`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -886,10 +886,10 @@ app.get('/', (req, res) => {
                         
                         var botones = '';
                         if (pedido.estado === 'PENDIENTE') {
-                            botones = '<button onclick="cambiarEstado(\\'' + pedido.pedido_id + '\\', \\'CONFIRMADO\\')" ' +
+                            botones = '<button onclick="cambiarEstado(\'' + pedido.pedido_id + '\', \'CONFIRMADO\')" ' +
                                      'class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">' +
                                      '✓ Confirmar</button>' +
-                                     '<button onclick="cambiarEstado(\\'' + pedido.pedido_id + '\\', \\'CANCELADO\\')" ' +
+                                     '<button onclick="cambiarEstado(\'' + pedido.pedido_id + '\', \'CANCELADO\')" ' +
                                      'class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">' +
                                      '✗ Cancelar</button>';
                         }
@@ -910,7 +910,6 @@ app.get('/', (req, res) => {
                                '</div>' +
                                '</div>';
                     }).join('');
-                }
                 
             } catch (error) {
                 console.error('Error cargando datos:', error);
@@ -931,8 +930,8 @@ app.get('/', (req, res) => {
 
 // Iniciar servidor
 app.listen(PORT, async () => {
-  console.log(\`🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(\`🌐 Dashboard: http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  console.log(`🌐 Dashboard: http://localhost:${PORT}`);
   
   // Verificar Google Sheets al iniciar
   await verificarGoogleSheets();
