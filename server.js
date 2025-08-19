@@ -16,20 +16,63 @@ app.use(express.json());
 // Google Sheets setup
 let sheets = null;
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID;
+const FORCE_SHEETS = true; // Forzar uso de Google Sheets
 
-if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
+// Configuración obligatoria de Google Sheets
+if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || !process.env.GOOGLE_PRIVATE_KEY || !SPREADSHEET_ID) {
+  console.error('❌ CONFIGURACIÓN REQUERIDA:');
+  console.error('   GOOGLE_SHEETS_ID=tu_sheet_id');
+  console.error('   GOOGLE_SERVICE_ACCOUNT_EMAIL=tu_email@proyecto.iam.gserviceaccount.com');
+  console.error('   GOOGLE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\ntu_clave\\n-----END PRIVATE KEY-----\\n"');
+  console.error('');
+  console.error('🔗 Guía completa: https://github.com/tu-repo/CONFIGURACION.md');
+  process.exit(1);
+}
+
+// Inicializar Google Sheets
+try {
+  const auth = new GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+  sheets = google.sheets({ version: 'v4', auth });
+  console.log('✅ Google Sheets configurado correctamente');
+} catch (error) {
+  console.error('❌ Error configurando Google Sheets:', error.message);
+  process.exit(1);
+}
+
+// Verificar conexión al iniciar
+async function verificarGoogleSheets() {
   try {
-    const auth = new GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      },
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    const response = await sheets.spreadsheets.get({
+      spreadsheetId: SPREADSHEET_ID
     });
-    sheets = google.sheets({ version: 'v4', auth });
-    console.log('✅ Google Sheets conectado');
+    console.log(`✅ Conectado a Google Sheet: "${response.data.properties?.title}"`);
+    
+    // Verificar que existan las hojas necesarias
+    const existingSheets = response.data.sheets?.map(sheet => sheet.properties?.title) || [];
+    const requiredSheets = ['Clientes', 'Categorias', 'Productos', 'Pedidos'];
+    
+    for (const sheetName of requiredSheets) {
+      if (!existingSheets.includes(sheetName)) {
+        console.error(`❌ Falta la hoja: "${sheetName}"`);
+        console.error('🔧 Crea las hojas: Clientes, Categorias, Productos, Pedidos');
+        process.exit(1);
+      }
+    }
+    
+    console.log('✅ Todas las hojas requeridas existen');
   } catch (error) {
-    console.log('⚠️ Google Sheets no configurado:', error.message);
+    console.error('❌ Error verificando Google Sheets:', error.message);
+    console.error('🔧 Verifica que:');
+    console.error('   1. El SPREADSHEET_ID sea correcto');
+    console.error('   2. La cuenta de servicio tenga acceso');
+    console.error('   3. Las hojas Clientes, Categorias, Productos, Pedidos existan');
+    process.exit(1);
   }
 }
 
@@ -58,10 +101,6 @@ const datosEjemplo = {
 
 // Función para leer de Google Sheets
 async function leerSheet(nombreHoja) {
-  if (!sheets || !SPREADSHEET_ID) {
-    return datosEjemplo[nombreHoja.toLowerCase()] || [];
-  }
-
   try {
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
@@ -80,18 +119,13 @@ async function leerSheet(nombreHoja) {
       return obj;
     });
   } catch (error) {
-    console.log(`⚠️ Error leyendo ${nombreHoja}:`, error.message);
-    return datosEjemplo[nombreHoja.toLowerCase()] || [];
+    console.error(`❌ Error leyendo ${nombreHoja}:`, error.message);
+    throw error;
   }
 }
 
 // Función para escribir a Google Sheets
 async function escribirSheet(nombreHoja, datos) {
-  if (!sheets || !SPREADSHEET_ID) {
-    console.log('⚠️ Google Sheets no configurado, usando datos en memoria');
-    return false;
-  }
-
   try {
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
@@ -103,8 +137,8 @@ async function escribirSheet(nombreHoja, datos) {
     });
     return true;
   } catch (error) {
-    console.log(`⚠️ Error escribiendo en ${nombreHoja}:`, error.message);
-    return false;
+    console.error(`❌ Error escribiendo en ${nombreHoja}:`, error.message);
+    throw error;
   }
 }
 
@@ -125,14 +159,25 @@ app.get('/api/productos', async (req, res) => {
 });
 
 app.get('/api/pedidos', async (req, res) => {
-  const pedidos = await leerSheet('Pedidos');
+  let pedidos = await leerSheet('Pedidos');
+  
+  // Combinar con pedidos en memoria
+  if (pedidosEnMemoria.length > 0) {
+    pedidos = [...pedidos, ...pedidosEnMemoria];
+  }
+  
   res.json(pedidos);
 });
 
 app.get('/api/stats', async (req, res) => {
   const clientes = await leerSheet('Clientes');
   const productos = await leerSheet('Productos');
-  const pedidos = await leerSheet('Pedidos');
+  let pedidos = await leerSheet('Pedidos');
+  
+  // Combinar con pedidos en memoria
+  if (pedidosEnMemoria.length > 0) {
+    pedidos = [...pedidos, ...pedidosEnMemoria];
+  }
   
   const stats = {
     totalClientes: clientes.length,
@@ -150,6 +195,8 @@ const WEBHOOK_URL = process.env.RAILWAY_STATIC_URL ? `${process.env.RAILWAY_STAT
 
 // Estado del bot (en memoria)
 const sesionesBot = new Map();
+const pedidosEnMemoria = [];
+let contadorPedidos = 1;
 
 // Webhook de Telegram
 app.post('/webhook', async (req, res) => {
@@ -176,9 +223,10 @@ async function manejarMensaje(message) {
   const chatId = message.chat.id;
   const texto = message.text;
   const userId = message.from.id;
+  const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
   if (texto === '/start') {
-    sesionesBot.set(userId, { estado: 'inicio', pedido: {} });
+    sesionesBot.set(userId, { estado: 'inicio', pedido: { items: [], total: 0 } });
     
     await enviarMensaje(chatId, '🛒 ¡Bienvenido a la Distribuidora!\n\nSelecciona una opción:', {
       reply_markup: {
@@ -190,6 +238,39 @@ async function manejarMensaje(message) {
       }
     });
   }
+  
+  // Manejar cantidad de producto
+  if (sesion.estado === 'esperando_cantidad' && /^\d+$/.test(texto)) {
+    const cantidad = parseInt(texto);
+    const producto = sesion.productoSeleccionado;
+    
+    if (cantidad > 0 && cantidad <= 50) {
+      const importe = producto.precio * cantidad;
+      sesion.pedido.items.push({
+        producto_id: producto.producto_id,
+        nombre: producto.producto_nombre,
+        precio: producto.precio,
+        cantidad: cantidad,
+        importe: importe
+      });
+      sesion.pedido.total += importe;
+      sesion.estado = 'inicio';
+      
+      await enviarMensaje(chatId, `✅ Agregado: ${cantidad}x ${producto.producto_nombre}\nSubtotal: $${importe}\nTotal del pedido: $${sesion.pedido.total}\n\n¿Qué deseas hacer?`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '➕ Agregar más productos', callback_data: 'hacer_pedido' }],
+            [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }],
+            [{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]
+          ]
+        }
+      });
+      
+      sesionesBot.set(userId, sesion);
+    } else {
+      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número entre 1 y 50:');
+    }
+  }
 }
 
 // Manejar callbacks
@@ -197,6 +278,7 @@ async function manejarCallback(callback_query) {
   const chatId = callback_query.message.chat.id;
   const data = callback_query.data;
   const userId = callback_query.from.id;
+  const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
   if (data === 'hacer_pedido') {
     const categorias = await leerSheet('Categorias');
@@ -231,15 +313,107 @@ async function manejarCallback(callback_query) {
     const producto = productos.find(p => p.producto_id == productoId);
     
     if (producto) {
-      await enviarMensaje(chatId, `✅ Producto agregado: ${producto.producto_nombre}\nPrecio: $${producto.precio}\n\n¿Deseas agregar más productos?`, {
+      sesion.estado = 'esperando_cantidad';
+      sesion.productoSeleccionado = producto;
+      sesionesBot.set(userId, sesion);
+      
+      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres? (1-50)`);
+    }
+  }
+  
+  if (data === 'ver_carrito') {
+    if (sesion.pedido.items.length === 0) {
+      await enviarMensaje(chatId, '🛒 Tu carrito está vacío\n\n¿Deseas agregar productos?', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
+          ]
+        }
+      });
+    } else {
+      let mensaje = '🛒 TU CARRITO:\n\n';
+      sesion.pedido.items.forEach((item, index) => {
+        mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n\n`;
+      });
+      mensaje += `💰 TOTAL: $${sesion.pedido.total}`;
+      
+      await enviarMensaje(chatId, mensaje, {
         reply_markup: {
           inline_keyboard: [
             [{ text: '➕ Agregar más', callback_data: 'hacer_pedido' }],
+            [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }],
             [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }]
           ]
         }
       });
     }
+  }
+  
+  if (data === 'vaciar_carrito') {
+    sesion.pedido = { items: [], total: 0 };
+    sesion.estado = 'inicio';
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, '🗑️ Carrito vaciado\n\n¿Deseas hacer un nuevo pedido?', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
+        ]
+      }
+    });
+  }
+  
+  if (data === 'finalizar_pedido') {
+    if (sesion.pedido.items.length === 0) {
+      await enviarMensaje(chatId, '❌ No tienes productos en el carrito');
+      return;
+    }
+    
+    // Crear pedido
+    const pedidoId = `PED${String(contadorPedidos++).padStart(3, '0')}`;
+    const fechaHora = new Date().toLocaleString('es-AR');
+    const clienteNombre = callback_query.from.first_name || 'Cliente';
+    
+    const nuevoPedido = {
+      pedido_id: pedidoId,
+      fecha_hora: fechaHora,
+      cliente_id: userId,
+      cliente_nombre: clienteNombre,
+      items_cantidad: sesion.pedido.items.length,
+      total: sesion.pedido.total,
+      estado: 'CONFIRMADO',
+      items: sesion.pedido.items
+    };
+    
+    // Guardar en memoria
+    pedidosEnMemoria.push(nuevoPedido);
+    
+    // Intentar guardar en Google Sheets
+    await escribirSheet('Pedidos', [
+      pedidoId, fechaHora, userId, clienteNombre, 
+      sesion.pedido.items.length, sesion.pedido.total, 'CONFIRMADO'
+    ]);
+    
+    // Limpiar sesión
+    sesionesBot.set(userId, { estado: 'inicio', pedido: { items: [], total: 0 } });
+    
+    let mensaje = `✅ PEDIDO CONFIRMADO\n\n`;
+    mensaje += `📋 Pedido: ${pedidoId}\n`;
+    mensaje += `👤 Cliente: ${clienteNombre}\n`;
+    mensaje += `📅 Fecha: ${fechaHora}\n\n`;
+    mensaje += `🛒 PRODUCTOS:\n`;
+    nuevoPedido.items.forEach((item, index) => {
+      mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n`;
+    });
+    mensaje += `\n💰 TOTAL: $${nuevoPedido.total}`;
+    
+    await enviarMensaje(chatId, mensaje, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Nuevo Pedido', callback_data: 'hacer_pedido' }]
+        ]
+      }
+    });
   }
   
   if (data === 'ver_productos') {
@@ -315,6 +489,29 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Test Google Sheets connection
+app.get('/test-sheets', async (req, res) => {
+  try {
+    // Test reading from sheets
+    const clientes = await leerSheet('Clientes');
+    const productos = await leerSheet('Productos');
+    
+    res.json({
+      connected: true,
+      spreadsheetId: SPREADSHEET_ID,
+      clientesCount: clientes.length,
+      productosCount: productos.length,
+      message: 'Google Sheets funcionando correctamente'
+    });
+    
+  } catch (error) {
+    res.json({
+      connected: false,
+      error: error.message,
+      solution: 'Verifica configuración de Google Sheets'
+    });
+  }
+});
 // Dashboard web
 app.get('/', (req, res) => {
   res.send(`
@@ -409,11 +606,11 @@ app.get('/', (req, res) => {
                 if (pedidos.length === 0) {
                     pedidosContainer.innerHTML = '<div class="text-center text-gray-500">No hay pedidos</div>';
                 } else {
-                    pedidosContainer.innerHTML = pedidos.map(pedido => \`
+                    pedidosContainer.innerHTML = pedidos.slice(-10).reverse().map(pedido => \`
                         <div class="flex justify-between items-center p-4 border rounded-lg">
                             <div>
                                 <h3 class="font-semibold">\${pedido.pedido_id} - \${pedido.cliente_nombre}</h3>
-                                <p class="text-gray-600">\${pedido.fecha_hora}</p>
+                                <p class="text-gray-600">\${pedido.fecha_hora} - \${pedido.items_cantidad || 0} items</p>
                             </div>
                             <div class="text-right">
                                 <p class="font-bold">$\${parseInt(pedido.total || 0).toLocaleString()}</p>
@@ -434,8 +631,8 @@ app.get('/', (req, res) => {
         // Cargar al inicio
         cargarDatos();
         
-        // Recargar cada 30 segundos
-        setInterval(cargarDatos, 30000);
+        // Recargar cada 10 segundos
+        setInterval(cargarDatos, 10000);
     </script>
 </body>
 </html>
@@ -446,6 +643,9 @@ app.get('/', (req, res) => {
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`🌐 Dashboard: http://localhost:${PORT}`);
+  
+  // Verificar Google Sheets al iniciar
+  await verificarGoogleSheets();
   
   // Configurar webhook después de un delay
   setTimeout(configurarWebhook, 5000);
