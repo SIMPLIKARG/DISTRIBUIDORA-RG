@@ -267,11 +267,15 @@ async function manejarMensaje(message) {
   // Manejar selección de cliente por nombre
   if (sesion.estado === 'esperando_cliente') {
     const clientes = await leerSheet('Clientes');
-    const clienteEncontrado = clientes.find(c => 
+    const clientesEncontrados = clientes.filter(c => 
       c.nombre.toLowerCase().includes(texto.toLowerCase())
     );
     
-    if (clienteEncontrado) {
+    if (clientesEncontrados.length === 0) {
+      await enviarMensaje(chatId, `❌ No encontré ningún cliente con "${texto}"\n\nIntenta con otro nombre o parte del nombre:`);
+    } else if (clientesEncontrados.length === 1) {
+      // Solo un cliente encontrado, seleccionarlo automáticamente
+      const clienteEncontrado = clientesEncontrados[0];
       sesion.clienteSeleccionado = clienteEncontrado;
       sesion.estado = 'cliente_confirmado';
       sesionesBot.set(userId, sesion);
@@ -291,7 +295,20 @@ async function manejarMensaje(message) {
         }
       });
     } else {
-      await enviarMensaje(chatId, `❌ No encontré un cliente con "${texto}"\n\nIntenta con otro nombre o parte del nombre:`);
+      // Múltiples clientes encontrados, mostrar opciones
+      const keyboard = clientesEncontrados.slice(0, 10).map(cliente => [{ 
+        text: `👤 ${cliente.nombre}`, 
+        callback_data: `cliente_${cliente.cliente_id}` 
+      }]);
+      
+      keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_cliente' }]);
+      keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
+      
+      await enviarMensaje(chatId, `🔍 Encontré ${clientesEncontrados.length} clientes con "${texto}":\n\nSelecciona el correcto:`, {
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
     }
     return;
   }
@@ -879,8 +896,8 @@ app.get('/', (req, res) => {
                             clase = 'bg-green-100 text-green-800';
                         } else if (p.estado === 'PENDIENTE') {
                             clase = 'bg-yellow-100 text-yellow-800';
-                            botones = '<button onclick="cambiarEstado(\\'' + p.pedido_id + \'\\', \\\'CONFIRMADO\\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded mr-1">✓</button>' +
-                                     '<button onclick="cambiarEstado(\\'' + p.pedido_id + \'\\', \\\'CANCELADO\\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded">✗</button>';
+                            botones = '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CONFIRMADO\\')" class="px-2 py-1 bg-green-500 text-white text-xs rounded mr-1">✓</button>' +
+                                     '<button onclick="cambiarEstado(\\'' + p.pedido_id + '\\', \\'CANCELADO\\')" class="px-2 py-1 bg-red-500 text-white text-xs rounded">✗</button>';
                         } else {
                             clase = 'bg-red-100 text-red-800';
                         }
@@ -907,6 +924,7 @@ app.get('/', (req, res) => {
 </body>
 </html>`;
   
+  res.send(html);
   res.send(html);
 });
 
