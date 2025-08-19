@@ -890,20 +890,19 @@ app.get('/', (req, res) => {
                                     }">
                                         \${pedido.estado}
                                     </span>
-                                    \${pedido.estado === 'PENDIENTE' ? \`
-                                        <button onclick="cambiarEstado('\${pedido.pedido_id}', 'CONFIRMADO')" 
+                                    \${pedido.estado === 'PENDIENTE' ? 
+                                        \`<button onclick="cambiarEstado('\${pedido.pedido_id}', 'CONFIRMADO')" 
                                                 class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600">
                                             ✓ Confirmar
                                         </button>
                                         <button onclick="cambiarEstado('\${pedido.pedido_id}', 'CANCELADO')" 
                                                 class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">
                                             ✗ Cancelar
-                                        </button>
-                                    \` : \'\'}
+                                        </button>\` : ''
+                                    }
                                 </div>
                             </div>
-                        </div>
-                    \`).join(\'\');
+                        </div>`).join('');
                 }
                 
             } catch (error) {
