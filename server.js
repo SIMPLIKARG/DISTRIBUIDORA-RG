@@ -815,7 +815,7 @@ app.get('/test-sheets', async (req, res) => {
 });
 // Dashboard web
 app.get('/', (req, res) => {
-  const html = `<!DOCTYPE html>
+  const html = `
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -1122,7 +1122,9 @@ app.listen(PORT, async () => {
                         <div class="mt-6 flex justify-end space-x-2">
                             <button onclick="cerrarModal()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">Cerrar</button>
                         </div>
-                    </div>
+  `;
+  
+  res.send(html);
                 </div>
             </div>
         </div>
