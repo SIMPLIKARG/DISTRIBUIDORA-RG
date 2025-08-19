@@ -37,7 +37,7 @@ export const validateQuantity = (input: string): number | null => {
   return isNaN(quantity) || quantity <= 0 ? null : quantity;
 };
 
-export const searchInArray = <T>(
+export const searchInArray = <T extends Record<string, unknown>>(
   array: T[], 
   searchTerm: string, 
   searchFields: (keyof T)[]
