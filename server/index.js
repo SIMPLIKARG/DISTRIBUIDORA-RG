@@ -2,75 +2,65 @@ import express from "express";
 import { Telegraf } from "telegraf";
 import { GoogleSpreadsheet } from "google-spreadsheet";
 
-// ===== Env vars (con fallbacks) =====
-const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, SHEET_ID, SHEET_URL, GOOGLE_SHEETS_ID, GOOGLE_SHEET_ID } = process.env;
+// ===== Env vars (with fallbacks) =====
+const {
+  GOOGLE_SERVICE_ACCOUNT_EMAIL,
+  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
+  SHEET_ID,
+  SHEET_URL,
+  GOOGLE_SHEETS_ID,
+  GOOGLE_SHEET_ID,
+} = process.env;
 
-// Soporta ambos nombres para token y secret
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_WEBhook_SECRET = process.env.TELEGRAM_WEBhook_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET || "gk-default-hook";
 
-// PUBLIC_URL autodetección y warnings no fatales
-let PUBLIC_URL = process.env.PUBLIC_URL
-  || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "")
-  || process.env.RAILWAY_URL
-  || process.env.DEPLOY_URL
-  || process.env.RENDER_EXTERNAL_URL
-  || "";
+let PUBLIC_URL =
+  process.env.PUBLIC_URL ||
+  (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "") ||
+  process.env.RAILWAY_URL ||
+  process.env.DEPLOY_URL ||
+  process.env.RENDER_EXTERNAL_URL ||
+  "";
 
+// Basic checks (do not crash for PUBLIC_URL/WEBHOOK)
 if (!TELEGRAM_TOKEN) throw new Error("Falta TELEGRAM_TOKEN (o TELEGRAM_BOT_TOKEN)");
-if (!TELEGRAM_WEBhook_SECRET) console.warn("TELEGRAM_WEBhook_SECRET no definido, usando valor por defecto para el path de webhook.");
-if (!PUBLIC_URL) console.warn("PUBLIC_URL no definido. Se intentará auto-detectar; también podés setearlo o usar /set-webhook.");
+if (!TELEGRAM_WEBhook_SECRET) console.warn("TELEGRAM_WEBhook_SECRET no definido; usando valor por defecto para el path del webhook.");
+if (!PUBLIC_URL) console.warn("PUBLIC_URL no definido. Se intentará auto-detectar; podés configurarlo o usar /set-webhook.");
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
 
-// ===== Bot =====
+// ===== Telegram Bot =====
 const bot = new Telegraf(TELEGRAM_TOKEN, { handlerTimeout: 9000 });
-
-// Ping simple
 bot.command("ping", (ctx) => ctx.reply("pong 🏓"));
 
-// ===== Helpers Google Sheets =====
+// ===== Helpers: extract Sheet ID from URL or accept ID as-is =====
 function extractSheetId(urlOrId) {
   if (!urlOrId) return "";
-  // If it's already an ID, return it
-  if (/^[a-zA-Z0-9-_]{20,}$/.test(urlOrId)) return urlOrId;
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(urlOrId)) return urlOrId; // looks like an ID
   const m = String(urlOrId).match(/\/d\/([a-zA-Z0-9-_]+)/);
   return m ? m[1] : "";
 }
 
+// ===== Google Sheets doc open (robust private key normalization) =====
 async function openDoc() {
   if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
     throw new Error("Sheets no configurado: faltan credenciales");
   }
   const sheetId = SHEET_ID || GOOGLE_SHEETS_ID || GOOGLE_SHEET_ID || extractSheetId(SHEET_URL);
   if (!sheetId) {
-    throw new Error("Sheets no configurado: faltan SHEET_ID/GOOGLE_SHEETS_ID o SHEET_URL válidos");
+    throw new Error("Sheets no configurado: falta SHEET_ID/GOOGLE_SHEETS_ID o SHEET_URL válido");
   }
   const doc = new GoogleSpreadsheet(sheetId);
-  // convertir 
- literales en saltos reales (seguro aunque ya tenga saltos)
-  const pk = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').split(String.raw"\n").join('
-');
-  await doc.useServiceAccountAuth({ client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL, private_key: pk });
-  await doc.loadInfo();
-  return doc;
-}
-  const sheetId = SHEET_ID || GOOGLE_SHEETS_ID || GOOGLE_SHEET_ID || extractSheetId(SHEET_URL);
-  if (!sheetId) {
-    throw new Error("Sheets no configurado: faltan SHEET_ID o SHEET_URL válidos");
-  }
-  const doc = new GoogleSpreadsheet(sheetId);
-  const pk = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').split(String.raw`\n`).join('\n');
-return raw.includes("\n") ? raw.split(String.raw"\n").join('
-') : raw; })(); return raw.includes("\n") ? raw.split(String.raw"\n").join('
-') : raw; })();
+  // Convert "\n" literals into real newlines. Safe even if already real newlines.
+  const pk = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').split(String.raw`\\n`).join('\n');
   await doc.useServiceAccountAuth({ client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL, private_key: pk });
   await doc.loadInfo();
   return doc;
 }
 
-// ===== Demo /add producto cantidad (escribe en la primera hoja) =====
+// ===== Simple demo: /add <producto> <cantidad> writes to first sheet =====
 bot.command("add", async (ctx) => {
   try {
     const parts = (ctx.message.text || "").trim().split(/\s+/);
@@ -97,7 +87,7 @@ const CLIENTS_CACHE_TTL_MS = 5 * 60 * 1000;
 async function openClientsSheet() {
   try {
     const doc = await openDoc();
-    // buscar hoja "Clientes" (case-insensitive)
+    // Buscar hoja "Clientes" (case-insensitive). Si no existe, usar la primera.
     let ws = null;
     for (let i = 0; i < doc.sheetCount; i++) {
       const s = doc.sheetsByIndex[i];
@@ -111,16 +101,14 @@ async function openClientsSheet() {
   }
 }
 
-
-// ===== Helpers de lectura robusta desde Google Sheets =====
+// Lee clientes preferentemente por headers; si falla o da 0, lee por celdas (A=id, B=nombre, C=categoria)
 async function loadClientsFromSheet() {
   const ws = await openClientsSheet();
   if (!ws) return [];
-
+  // 1) Intento por headers (getRows)
   try {
-    // 1) Intento normal usando headers
     const rows = await ws.getRows({ limit: 5000 });
-    let list = [];
+    const list = [];
     for (const r of rows) {
       const idRaw = r.cliente_id ?? r.id ?? r.ID ?? r.Id ?? r['cliente_id'] ?? r['Cliente_id'];
       const nombreRaw = r.nombre ?? r.Nombre ?? r.NOMBRE ?? r.cliente ?? r.Cliente;
@@ -130,8 +118,8 @@ async function loadClientsFromSheet() {
       const categoria = catRaw ? String(catRaw).trim() : "";
       if (nombre) list.push({ id, nombre, categoria });
     }
-    if (list.length > 0) {
-      const seen = new Set(), dedup = [];
+    if (list.length) {
+      const seen = new Set(); const dedup = [];
       for (const c of list) {
         const key = (c.id || "") + "|" + c.nombre.toLowerCase();
         if (!seen.has(key)) { seen.add(key); dedup.push(c); }
@@ -142,20 +130,15 @@ async function loadClientsFromSheet() {
   } catch (e) {
     console.warn("getRows con headers falló, probando lectura por celdas:", e.message);
   }
-
-  // 2) Fallback: lectura por celdas (A=cliente_id, B=nombre, C=categoria)
+  // 2) Fallback por celdas (A=id, B=nombre, C=categoria) — B es la 2da columna (tu requerimiento)
   try {
     const maxRows = Math.min(ws.rowCount || 1000, 2000);
     await ws.loadCells(`A1:C${maxRows}`);
-    const headerA = (ws.getCellByA1("A1").value || "").toString().toLowerCase();
-    const headerB = (ws.getCellByA1("B1").value || "").toString().toLowerCase();
-    const headerC = (ws.getCellByA1("C1").value || "").toString().toLowerCase();
-    // Si las cabeceras no están, igual leemos valores de columnas A/B/C
     const arr = [];
     for (let r = 2; r <= maxRows; r++) {
-      const id = (ws.getCell(r-1, 0).value || "").toString().trim();   // A
-      const nombre = (ws.getCell(r-1, 1).value || "").toString().trim(); // B
-      const categoria = (ws.getCell(r-1, 2).value || "").toString().trim(); // C
+      const id = (ws.getCell(r-1, 0).value || "").toString().trim();   // Col A
+      const nombre = (ws.getCell(r-1, 1).value || "").toString().trim(); // Col B
+      const categoria = (ws.getCell(r-1, 2).value || "").toString().trim(); // Col C
       if (nombre) arr.push({ id, nombre, categoria });
     }
     if (arr.length) {
@@ -163,31 +146,16 @@ async function loadClientsFromSheet() {
       return arr;
     }
   } catch (e) {
-    console.error("Fallback por celdas también falló:", e);
+    console.error("Fallback por celdas falló:", e);
   }
   return [];
 }
-
-// /clients: comando de depuración para listar los primeros clientes leídos
-bot.command("clients", async (ctx) => {
-  try {
-    const list = await getClients();
-    if (!list.length) return ctx.reply("No pude leer clientes (0 resultados). Revisá permisos/hoja 'Clientes'.");
-    const first = list.slice(0, 20).map(c => `${c.id ? c.id+" - " : ""}${c.nombre}${c.categoria ? " · cat "+c.categoria : ""}`).join("\n");
-    return ctx.reply(`Leídos ${list.length} clientes:
-` + first);
-  } catch (e) {
-    console.error("/clients error:", e);
-    return ctx.reply("Error leyendo clientes.");
-  }
-});
-
 
 async function getClients() {
   const now = Date.now();
   if (clientsCache.list.length && (now - clientsCache.ts) < CLIENTS_CACHE_TTL_MS) return clientsCache.list;
   const list = await loadClientsFromSheet();
-  clientsCache = { list, byId: new Map(list.map(c => [c.id, c])), ts: now };
+  clientsCache = { list, byId: new Map(list.map(c=>[c.id, c])), ts: now };
   return list;
 }
 
@@ -209,7 +177,7 @@ function buildClientKeyboard(clients, page=0, pageSize=10) {
 
 function normalize(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
 
-// /start: flujo de selección de cliente
+// /start: flujo para elegir cliente
 bot.command("start", async (ctx) => {
   const userId = ctx.from.id;
   const all = await getClients();
@@ -218,10 +186,10 @@ bot.command("start", async (ctx) => {
   }
   session.set(userId, { step: "choose_client", page: 0, filtered: all });
   const kb = buildClientKeyboard(all, 0);
-  await ctx.reply("Elegí un cliente (o escribí 3+ letras para buscar):", kb);
+  await ctx.reply("Elegí un cliente de la lista o escribí 3+ letras para buscar:", kb);
 });
 
-// Texto libre cuando estamos eligiendo cliente
+// Texto libre: filtra clientes si estamos en selección
 bot.on("text", async (ctx) => {
   const userId = ctx.from.id;
   const st = session.get(userId);
@@ -242,6 +210,19 @@ bot.on("text", async (ctx) => {
   session.set(userId, { step: "choose_client", page: 0, filtered });
   const kb = buildClientKeyboard(filtered, 0);
   await ctx.reply(filtered.length ? "⬇️ Resultados:" : "No encontré coincidencias. Probá con otro texto.", kb);
+});
+
+// /clients: depuración para listar los primeros clientes
+bot.command("clients", async (ctx) => {
+  try {
+    const list = await getClients();
+    if (!list.length) return ctx.reply("No pude leer clientes (0 resultados). Revisá permisos/hoja 'Clientes'.");
+    const first = list.slice(0, 20).map(c => `${c.id ? c.id+" - " : ""}${c.nombre}${c.categoria ? " · cat "+c.categoria : ""}`).join("\n");
+    return ctx.reply(`Leídos ${list.length} clientes:\n` + first);
+  } catch (e) {
+    console.error("/clients error:", e);
+    return ctx.reply("Error leyendo clientes.");
+  }
 });
 
 // Callbacks (selección y paginación)
@@ -318,7 +299,7 @@ app.get("/set-webhook", async (_req, res) => {
   }
 });
 
-// ===== Arranque =====
+// ===== Start server =====
 const port = process.env.PORT || 3000;
 app.listen(port, async () => {
   const url = `${PUBLIC_URL}${HOOK_PATH}`;

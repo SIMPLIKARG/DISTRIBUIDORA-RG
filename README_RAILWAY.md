@@ -1,40 +1,23 @@
-# Deploy en Railway (Dockerfile)
 
-Este repo contiene tu frontend original y un backend en `server/` para el webhook de Telegram.
-Para evitar el error de `npm ci`, se agrega un `Dockerfile` en la raíz que:
+# Deploy en Railway (Bot Telegram + Google Sheets)
 
-1) Usa Node 20 Alpine
-2) Instala dependencias de `server/package.json` con `npm install --omit=dev`
-3) Copia el código de `server/`
-4) Expone el puerto 3000
-5) Ejecuta `node index.js`
-
-## Variables requeridas (configurarlas en Railway → Variables)
-- TELEGRAM_TOKEN
-- PUBLIC_URL               (https de Railway, ej: https://<app>.up.railway.app)
-- TELEGRAM_WEBhook_SECRET  (tu secreto de ruta)
+## Variables de entorno
+- TELEGRAM_TOKEN **o** TELEGRAM_BOT_TOKEN
+- TELEGRAM_WEBhook_SECRET **o** TELEGRAM_WEBHOOK_SECRET
+- PUBLIC_URL (opcional; si no está, se intenta auto-detectar; podés usar /set-webhook)
 - GOOGLE_SERVICE_ACCOUNT_EMAIL
-- GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
-- SHEET_ID
+- GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY  ← pegar en una sola línea con \n literales (el server las convierte)
+- SHEET_ID **o** GOOGLE_SHEETS_ID **o** GOOGLE_SHEET_ID **o** SHEET_URL
 
-## Verificación rápida
-- Logs deben mostrar: `setWebhook OK -> https://.../webhook/<secret>`
-- En Telegram: `/ping` responde "pong 🏓"
-- `/add oreo 3` agrega una fila en el Google Sheet
+## Webhook
+- Arranque: setea webhook si PUBLIC_URL no está vacío.
+- Manual: GET /set-webhook → devuelve { ok: true, url } si se setea.
 
+## Telegram
+- /ping
+- /start → selector/búsqueda de cliente desde pestaña "Clientes" (2da columna = nombre)
+- /clients → depuración, lista los primeros clientes leídos
+- /add <producto> <cantidad> → escribe una fila en la 1ra hoja
 
-## Google Sheets: ID o URL
-Podés configurar **uno** de estos dos:
-- `SHEET_ID` (recomendado): el ID solo, por ej. `18vBpQh7JYYbsP34OJ9weuT1QcwGD5OCIXPpbPCwyxF4`
-- `SHEET_URL`: la URL completa del archivo (el servidor extrae el ID automáticamente)
-
-Asegurate de compartir el Sheet con el `GOOGLE_SERVICE_ACCOUNT_EMAIL` (Editor).
-
-
-## Variables aceptadas para Google Sheets
-- `SHEET_ID` **o** `GOOGLE_SHEETS_ID` **o** `GOOGLE_SHEET_ID`
-- `SHEET_URL` (opcional; si pasás URL, el server extrae el ID)
-- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
-- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`  ← pega la key con `\n` literales (todo en una sola línea)
-
-La key se normaliza internamente con: `split(String.raw`\n`).join('\n')`
+## Notas
+- La clave privada se normaliza con: split(String.raw`\n`).join('\n'), para evitar errores de comillas/saltos.
