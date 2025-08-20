@@ -83,29 +83,78 @@ async function openClientsSheet() {
   }
 }
 
+
+// ===== Helpers de lectura robusta desde Google Sheets =====
 async function loadClientsFromSheet() {
   const ws = await openClientsSheet();
   if (!ws) return [];
-  const rows = await ws.getRows({ limit: 5000 });
-  const list = [];
-  for (const r of rows) {
-    const idRaw = r.cliente_id ?? r.id ?? r.ID ?? r.Id ?? r['cliente_id'] ?? r['Cliente_id'];
-    const nombreRaw = r.nombre ?? r.Nombre ?? r.NOMBRE ?? r.cliente ?? r.Cliente;
-    const catRaw = r.categoria ?? r.Categoria ?? r.CATEGORIA;
-    const id = idRaw ? String(idRaw).trim() : "";
-    const nombre = nombreRaw ? String(nombreRaw).trim() : "";
-    const categoria = catRaw ? String(catRaw).trim() : "";
-    if (nombre) list.push({ id, nombre, categoria });
+
+  try {
+    // 1) Intento normal usando headers
+    const rows = await ws.getRows({ limit: 5000 });
+    let list = [];
+    for (const r of rows) {
+      const idRaw = r.cliente_id ?? r.id ?? r.ID ?? r.Id ?? r['cliente_id'] ?? r['Cliente_id'];
+      const nombreRaw = r.nombre ?? r.Nombre ?? r.NOMBRE ?? r.cliente ?? r.Cliente;
+      const catRaw = r.categoria ?? r.Categoria ?? r.CATEGORIA;
+      const id = idRaw ? String(idRaw).trim() : "";
+      const nombre = nombreRaw ? String(nombreRaw).trim() : "";
+      const categoria = catRaw ? String(catRaw).trim() : "";
+      if (nombre) list.push({ id, nombre, categoria });
+    }
+    if (list.length > 0) {
+      const seen = new Set(), dedup = [];
+      for (const c of list) {
+        const key = (c.id || "") + "|" + c.nombre.toLowerCase();
+        if (!seen.has(key)) { seen.add(key); dedup.push(c); }
+      }
+      dedup.sort((a,b)=> a.nombre.localeCompare(b.nombre));
+      return dedup;
+    }
+  } catch (e) {
+    console.warn("getRows con headers falló, probando lectura por celdas:", e.message);
   }
-  // dedup & sort
-  const seen = new Set(), dedup = [];
-  for (const c of list) {
-    const key = (c.id || "") + "|" + c.nombre.toLowerCase();
-    if (!seen.has(key)) { seen.add(key); dedup.push(c); }
+
+  // 2) Fallback: lectura por celdas (A=cliente_id, B=nombre, C=categoria)
+  try {
+    const maxRows = Math.min(ws.rowCount || 1000, 2000);
+    await ws.loadCells(`A1:C${maxRows}`);
+    const headerA = (ws.getCellByA1("A1").value || "").toString().toLowerCase();
+    const headerB = (ws.getCellByA1("B1").value || "").toString().toLowerCase();
+    const headerC = (ws.getCellByA1("C1").value || "").toString().toLowerCase();
+    // Si las cabeceras no están, igual leemos valores de columnas A/B/C
+    const arr = [];
+    for (let r = 2; r <= maxRows; r++) {
+      const id = (ws.getCell(r-1, 0).value || "").toString().trim();   // A
+      const nombre = (ws.getCell(r-1, 1).value || "").toString().trim(); // B
+      const categoria = (ws.getCell(r-1, 2).value || "").toString().trim(); // C
+      if (nombre) arr.push({ id, nombre, categoria });
+    }
+    if (arr.length) {
+      arr.sort((a,b)=> a.nombre.localeCompare(b.nombre));
+      return arr;
+    }
+  } catch (e) {
+    console.error("Fallback por celdas también falló:", e);
   }
-  dedup.sort((a,b)=> a.nombre.localeCompare(b.nombre));
-  return dedup;
+  return [];
 }
+
+// /clients: comando de depuración para listar los primeros clientes leídos
+bot.command("clients", async (ctx) => {
+  try {
+    const list = await getClients();
+    if (!list.length) return ctx.reply("No pude leer clientes (0 resultados). Revisá permisos/hoja 'Clientes'.");
+    const first = list.slice(0, 20).map(c => `${c.id ? c.id+" - " : ""}${c.nombre}${c.categoria ? " · cat "+c.categoria : ""}`).join("
+");
+    return ctx.reply(`Leídos ${list.length} clientes:
+` + first);
+  } catch (e) {
+    console.error("/clients error:", e);
+    return ctx.reply("Error leyendo clientes.");
+  }
+});
+
 
 async function getClients() {
   const now = Date.now();
