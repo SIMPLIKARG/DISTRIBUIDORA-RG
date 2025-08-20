@@ -3,7 +3,6 @@ import express from "express";
 import { Telegraf } from "telegraf";
 import { google } from "googleapis";
 
-// ===== Env =====
 const {
   GOOGLE_SERVICE_ACCOUNT_EMAIL,
   GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
@@ -30,7 +29,6 @@ const app = express();
 app.use(express.json({ limit: "2mb" }));
 const bot = new Telegraf(TELEGRAM_TOKEN, { handlerTimeout: 9000 });
 
-// ===== Helpers =====
 function extractSheetId(urlOrId) {
   if (!urlOrId) return "";
   if (/^[A-Za-z0-9_-]{20,}$/.test(urlOrId)) return urlOrId;
@@ -41,7 +39,14 @@ function pickSheetId() {
   return SHEET_ID || GOOGLE_SHEETS_ID || GOOGLE_SHEET_ID || extractSheetId(SHEET_URL);
 }
 function normalizePk(raw) {
-  return String(raw || "").split(String.raw`\\n`).join("\n");
+  let s = String(raw || "");
+  // remove possible surrounding quotes
+  if (s.startsWith('"') && s.endsWith('"')) s = s.slice(1, -1);
+  // convert \r\n and \r to \n
+  s = s.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  // convert literal \n into real newlines
+  s = s.split(String.raw`\\n`).join("\n");
+  return s.trim();
 }
 
 function getAuth() {
@@ -63,16 +68,13 @@ function getSheetsClient() {
   return { sheets, spreadsheetId };
 }
 
-async function getFirstSheetTitle(sheets, spreadsheetId) {
+async function firstTitle(sheets, spreadsheetId) {
   const meta = await sheets.spreadsheets.get({ spreadsheetId });
-  const first = meta.data.sheets?.[0]?.properties?.title || "Hoja 1";
-  return first;
+  return meta.data.sheets?.[0]?.properties?.title || "Hoja 1";
 }
 
-// ===== Telegram =====
 bot.command("ping", (ctx) => ctx.reply("pong 🏓"));
 
-// /add <producto> <cantidad> -> append row to first sheet
 bot.command("add", async (ctx) => {
   try {
     const parts = (ctx.message.text || "").trim().split(/\s+/);
@@ -80,11 +82,9 @@ bot.command("add", async (ctx) => {
     const qty = parseFloat(parts.pop().replace(",", "."));
     const producto = parts.slice(1).join(" ");
     const { sheets, spreadsheetId } = getSheetsClient();
-    const firstTitle = await getFirstSheetTitle(sheets, spreadsheetId);
+    const title = await firstTitle(sheets, spreadsheetId);
     await sheets.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${firstTitle}!A:Z`,
-      valueInputOption: "USER_ENTERED",
+      spreadsheetId, range: `${title}!A:Z`, valueInputOption: "USER_ENTERED",
       requestBody: { values: [[ctx.from.id, ctx.from.username || "", producto, qty, new Date().toISOString()]] }
     });
     return ctx.reply(`✅ Agregado: <b>${producto}</b> x <b>${qty}</b>`, { parse_mode: "HTML" });
@@ -94,66 +94,49 @@ bot.command("add", async (ctx) => {
   }
 });
 
-// ===== Clientes (lee pestaña 'Clientes') =====
 const session = new Map();
 let clientsCache = { list: [], ts: 0 };
 const CLIENTS_TTL = 5 * 60 * 1000;
 
 async function loadClients() {
   const { sheets, spreadsheetId } = getSheetsClient();
-  // 1) Intento en 'Clientes'
   try {
-    const resp = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range: "Clientes!A:C"
-    });
+    const resp = await sheets.spreadsheets.values.get({ spreadsheetId, range: "Clientes!A:C" });
     const rows = resp.data.values || [];
     if (rows.length > 1) {
       const list = rows.slice(1).map(r => ({
         id: (r[0] || "").toString().trim(),
         nombre: (r[1] || "").toString().trim(),
-        categoria: (r[2] || "").toString().trim()
+        categoria: (r[2] || "").toString().trim(),
       })).filter(x => x.nombre);
-      if (list.length) {
-        list.sort((a,b)=> a.nombre.localeCompare(b.nombre));
-        return list;
-      }
+      if (list.length) { list.sort((a,b)=> a.nombre.localeCompare(b.nombre)); return list; }
     }
-  } catch (e) {
-    // continúa al fallback
-  }
-  // 2) Fallback: primera hoja columnas A-C
-  const firstTitle = await getFirstSheetTitle(sheets, spreadsheetId);
-  const resp2 = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${firstTitle}!A:C`
-  });
+  } catch {}
+  const title = await firstTitle(sheets, spreadsheetId);
+  const resp2 = await sheets.spreadsheets.values.get({ spreadsheetId, range: `${title}!A:C` });
   const rows2 = resp2.data.values || [];
   const list2 = (rows2.length > 1 ? rows2.slice(1) : rows2).map(r => ({
     id: (r[0] || "").toString().trim(),
     nombre: (r[1] || "").toString().trim(),
-    categoria: (r[2] || "").toString().trim()
+    categoria: (r[2] || "").toString().trim(),
   })).filter(x => x.nombre);
   list2.sort((a,b)=> a.nombre.localeCompare(b.nombre));
   return list2;
 }
-
 async function getClients() {
   const now = Date.now();
-  if (clientsCache.list.length && (now - clientsCache.ts) < CLIENTS_TTL) return clientsCache.list;
+  if (clientsCache.list.length && now - clientsCache.ts < CLIENTS_TTL) return clientsCache.list;
   const list = await loadClients();
   clientsCache = { list, ts: now };
   return list;
 }
-
 function buildClientKeyboard(clients, page=0, pageSize=10) {
   const start = page * pageSize;
   const slice = clients.slice(start, start + pageSize);
   const kb = [];
   for (const c of slice) {
     const label = c.categoria ? `${c.nombre} · cat ${c.categoria}` : c.nombre;
-    const data = c.id ? `selid:${c.id}` : `sel:${c.nombre.slice(0,64)}`;
-    kb.push([{ text: label, callback_data: data }]);
+    kb.push([{ text: label, callback_data: c.id ? `selid:${c.id}` : `sel:${c.nombre.slice(0,64)}` }]);
   }
   const nav = [];
   if (page > 0) nav.push({ text: "⬅️ Anterior", callback_data: "pg:prev" });
@@ -161,20 +144,20 @@ function buildClientKeyboard(clients, page=0, pageSize=10) {
   if (nav.length) kb.push(nav);
   return { reply_markup: { inline_keyboard: kb } };
 }
-function normalize(s) { return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+const norm = s => String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 
 bot.command("start", async (ctx) => {
   try {
-    const all = await getClients();
-    if (!all.length) return ctx.reply("No pude leer clientes del Sheet. Revisá credenciales o la pestaña 'Clientes'.");
-    session.set(ctx.from.id, { step: "choose_client", page: 0, filtered: all });
-    const kb = buildClientKeyboard(all, 0);
-    await ctx.reply("Elegí un cliente o escribí 3+ letras para buscar:", kb);
+    const list = await getClients();
+    if (!list.length) return ctx.reply("No pude leer clientes del Sheet. Revisá credenciales o la pestaña 'Clientes'.");
+    session.set(ctx.from.id, { step: "choose_client", page: 0, filtered: list });
+    await ctx.reply("Elegí un cliente o escribí 3+ letras para buscar:", buildClientKeyboard(list, 0));
   } catch (e) {
     console.error("/start error:", e);
-    return ctx.reply("❌ Error al leer Google Sheets (credenciales o permisos).");
+    ctx.reply("❌ Error al leer Google Sheets (credenciales o permisos).");
   }
 });
+
 bot.command("clients", async (ctx) => {
   try {
     const list = await getClients();
@@ -183,18 +166,19 @@ bot.command("clients", async (ctx) => {
     return ctx.reply(`Leídos ${list.length} clientes:\n` + first);
   } catch (e) {
     console.error("/clients error:", e);
-    return ctx.reply("❌ Error al leer Google Sheets.");
+    ctx.reply("❌ Error al leer Google Sheets.");
   }
 });
+
 bot.on("text", async (ctx) => {
   const st = session.get(ctx.from.id);
   if (!st || st.step !== "choose_client") return;
-  const txt = (ctx.message.text || "").trim();
+  const q = (ctx.message.text || "").trim();
   const all = await getClients();
   let filtered = all;
-  if (txt.length >= 3) {
-    const q = normalize(txt);
-    filtered = all.filter(c => normalize(c.nombre).includes(q));
+  if (q.length >= 3) {
+    const nq = norm(q);
+    filtered = all.filter(c => norm(c.nombre).includes(nq));
     if (filtered.length === 1) {
       const c = filtered[0];
       session.set(ctx.from.id, { step: "done", client: c });
@@ -202,17 +186,17 @@ bot.on("text", async (ctx) => {
     }
   }
   session.set(ctx.from.id, { step: "choose_client", page: 0, filtered });
-  const kb = buildClientKeyboard(filtered, 0);
-  await ctx.reply(filtered.length ? "⬇️ Resultados:" : "No encontré coincidencias.", kb);
+  await ctx.reply(filtered.length ? "⬇️ Resultados:" : "No encontré coincidencias.", buildClientKeyboard(filtered, 0));
 });
+
 bot.on("callback_query", async (ctx) => {
   const st = session.get(ctx.from.id);
   if (!st) { await ctx.answerCbQuery(); return; }
   const data = ctx.callbackQuery.data || "";
   if (data.startsWith("selid:") || data.startsWith("sel:")) {
-    const idOrPrefix = data.startsWith("selid:") ? data.slice(6) : data.slice(4);
+    const key = data.startsWith("selid:") ? data.slice(6) : data.slice(4);
     const all = await getClients();
-    let c = data.startsWith("selid:") ? all.find(x => x.id === idOrPrefix) : all.find(x => x.nombre.startsWith(idOrPrefix));
+    const c = data.startsWith("selid:") ? all.find(x => x.id === key) : all.find(x => x.nombre.startsWith(key));
     await ctx.answerCbQuery();
     if (c) {
       session.set(ctx.from.id, { step: "done", client: c });
@@ -223,20 +207,17 @@ bot.on("callback_query", async (ctx) => {
     return;
   }
   if (data === "pg:next" || data === "pg:prev") {
-    let st2 = session.get(ctx.from.id);
-    let page = (st2?.page || 0) + (data === "pg:next" ? 1 : -1);
+    let page = (st.page || 0) + (data === "pg:next" ? 1 : -1);
     if (page < 0) page = 0;
-    st2 = { ...(st2 || {}), page };
-    session.set(ctx.from.id, st2);
-    const kb = buildClientKeyboard((st2.filtered || []), page);
-    try { await ctx.editMessageReplyMarkup(kb.reply_markup); } catch { await ctx.reply("Página actualizada:", kb); }
+    session.set(ctx.from.id, { ...st, page });
+    try { await ctx.editMessageReplyMarkup(buildClientKeyboard(st.filtered || [], page).reply_markup); }
+    catch { await ctx.reply("Página actualizada:", buildClientKeyboard(st.filtered || [], page)); }
     await ctx.answerCbQuery();
   } else {
     await ctx.answerCbQuery();
   }
 });
 
-// ===== HTTP =====
 const HOOK_PATH = `/webhook/${TELEGRAM_WEBhook_SECRET}`;
 app.post(HOOK_PATH, (req, res) => { try { bot.handleUpdate(req.body); } catch (e) { console.error(e); } res.send("ok"); });
 app.get("/", (_req, res) => res.json({ ok: true }));
@@ -257,7 +238,6 @@ app.get("/set-webhook", async (_req, res) => {
   catch (e) { console.error(e); return res.status(500).json({ ok: false, error: String(e) }); }
 });
 
-// Start
 const port = process.env.PORT || 3000;
 app.listen(port, async () => {
   const url = `${PUBLIC_URL}${HOOK_PATH}`;
