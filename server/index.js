@@ -145,8 +145,7 @@ bot.command("clients", async (ctx) => {
   try {
     const list = await getClients();
     if (!list.length) return ctx.reply("No pude leer clientes (0 resultados). Revisá permisos/hoja 'Clientes'.");
-    const first = list.slice(0, 20).map(c => `${c.id ? c.id+" - " : ""}${c.nombre}${c.categoria ? " · cat "+c.categoria : ""}`).join("
-");
+    const first = list.slice(0, 20).map(c => `${c.id ? c.id+" - " : ""}${c.nombre}${c.categoria ? " · cat "+c.categoria : ""}`).join("\n");
     return ctx.reply(`Leídos ${list.length} clientes:
 ` + first);
   } catch (e) {
