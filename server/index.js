@@ -7,7 +7,7 @@ const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, SHEET_
 // Soporta ambos nombres para el token del bot
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
 // Soporta ambos nombres para el secret del webhook
-const TELEGRAM_WEBhook_SECRET = process.env.TELEGRAM_WEBhook_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET;
+const TELEGRAM_WEBhook_SECRET = process.env.TELEGRAM_WEBhook_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET || "gk-default-hook";
 
 // PUBLIC_URL con auto-detección para Railway / Render / etc.
 let PUBLIC_URL = process.env.PUBLIC_URL
@@ -19,7 +19,7 @@ let PUBLIC_URL = process.env.PUBLIC_URL
 
 if (!TELEGRAM_TOKEN) throw new Error("Falta TELEGRAM_TOKEN");
 if (!PUBLIC_URL) console.warn("PUBLIC_URL no definido. Se intentará auto-detectar; también podés setearlo como env o usar /set-webhook.");
-if (!TELEGRAM_WEBhook_SECRET) throw new Error("Falta TELEGRAM_WEBhook_SECRET");
+if (!TELEGRAM_WEBhook_SECRET) console.warn("TELEGRAM_WEBhook_SECRET no definido, usando valor por defecto para el path del webhook.");
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
