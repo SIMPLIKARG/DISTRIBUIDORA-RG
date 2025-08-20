@@ -29,3 +29,12 @@ Podés configurar **uno** de estos dos:
 - `SHEET_URL`: la URL completa del archivo (el servidor extrae el ID automáticamente)
 
 Asegurate de compartir el Sheet con el `GOOGLE_SERVICE_ACCOUNT_EMAIL` (Editor).
+
+
+## Variables aceptadas para Google Sheets
+- `SHEET_ID` **o** `GOOGLE_SHEETS_ID` **o** `GOOGLE_SHEET_ID`
+- `SHEET_URL` (opcional; si pasás URL, el server extrae el ID)
+- `GOOGLE_SERVICE_ACCOUNT_EMAIL`
+- `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY`  ← pega la key con `\n` literales (todo en una sola línea)
+
+La key se normaliza internamente con: `split(String.raw`\n`).join('\n')`

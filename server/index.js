@@ -3,7 +3,7 @@ import { Telegraf } from "telegraf";
 import { GoogleSpreadsheet } from "google-spreadsheet";
 
 // ===== Env vars (con fallbacks) =====
-const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, SHEET_ID, SHEET_URL } = process.env;
+const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, SHEET_ID, SHEET_URL, GOOGLE_SHEETS_ID, GOOGLE_SHEET_ID } = process.env;
 
 // Soporta ambos nombres para token y secret
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
@@ -43,12 +43,12 @@ async function openDoc() {
   if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY) {
     throw new Error("Sheets no configurado: faltan credenciales");
   }
-  const sheetId = SHEET_ID || extractSheetId(SHEET_URL);
+  const sheetId = SHEET_ID || GOOGLE_SHEETS_ID || GOOGLE_SHEET_ID || extractSheetId(SHEET_URL);
   if (!sheetId) {
     throw new Error("Sheets no configurado: faltan SHEET_ID o SHEET_URL válidos");
   }
   const doc = new GoogleSpreadsheet(sheetId);
-  const pk = (String(GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "")).replace(/\\n/g, "\n");
+  const pk = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').split(String.raw`\n`).join('\n');
 return raw.includes("\n") ? raw.replace(/\n/g, "
 ") : raw; })(); return raw.includes("\n") ? raw.replace(/\n/g, "
 ") : raw; })();
