@@ -286,6 +286,22 @@ app.post(HOOK_PATH, (req, res) => {
 // Health & util para setear webhook manual
 app.get("/", (_req, res) => res.json({ ok: true, status: "healthy" }));
 
+// Debug: ver qué envs ve el contenedor (sin exponer secretos)
+app.get("/env", (_req, res) => {
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "";
+  const pk = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || "";
+  const sid = process.env.SHEET_ID || process.env.GOOGLE_SHEETS_ID || process.env.GOOGLE_SHEET_ID || process.env.SHEET_URL || "";
+  res.json({
+    TELEGRAM_TOKEN: !!(process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN),
+    TELEGRAM_WEBHOOK_SECRET: !!(process.env.TELEGRAM_WEBHOOK_SECRET || process.env.TELEGRAM_WEBhook_SECRET),
+    PUBLIC_URL: !!process.env.PUBLIC_URL,
+    GOOGLE_SERVICE_ACCOUNT_EMAIL: !!email,
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY: pk ? `len:${pk.length}` : false,
+    SHEET_ID_OR_URL: !!sid
+  });
+});
+
+
 app.get("/set-webhook", async (_req, res) => {
   if (!PUBLIC_URL) return res.status(400).json({ ok: false, error: "PUBLIC_URL vacío" });
   const url = `${PUBLIC_URL}${HOOK_PATH}`;
