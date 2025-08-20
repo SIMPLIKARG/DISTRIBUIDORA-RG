@@ -3,6 +3,7 @@ import { Send, Phone, User, Bot, ShoppingCart, Plus, Minus } from 'lucide-react'
 import { ChatMessage, Client, Product, OrderItem } from '../types';
 import { clients, products } from '../data/mockData';
 import { calculatePriceForCategory, getCategoryName, getCategoryColor } from '../utils/pricing';
+
 const ChatBot: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -29,7 +30,7 @@ const ChatBot: React.FC = () => {
       const initialMessage: ChatMessage = {
         id: Date.now().toString(),
         sender: 'bot',
-        message: `¡Hola ${client.name}! 👋 Soy el asistente de pedidos de la distribuidora. Mañana estaremos pasando por tu zona (${client.zone}) para hacer la entrega. ¿Necesitas mercadería esta semana?`,
+        message: `¡Hola ${client.name}! 👋 Soy el asistente de pedidos de la distribuidora. Mañana estaremos pasando por tu zona (${client.zone}) para hacer la entrega.\n\nTu categoría es: ${getCategoryName(client.category)}\n\n¿Necesitas mercadería esta semana?`,
         timestamp: new Date().toLocaleTimeString(),
         type: 'text'
       };
@@ -69,12 +70,16 @@ const ChatBot: React.FC = () => {
   };
 
   const addToOrder = (product: Product, quantity: number = 1) => {
+    if (!selectedClient) return;
+    
+    const clientPrice = calculatePriceForCategory(product.price, selectedClient.category);
+    
     setCurrentOrder(prev => {
       const existing = prev.find(item => item.productId === product.id);
       if (existing) {
         return prev.map(item =>
           item.productId === product.id
-            ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.price }
+            ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * clientPrice }
             : item
         );
       } else {
@@ -82,8 +87,8 @@ const ChatBot: React.FC = () => {
           productId: product.id,
           productName: product.name,
           quantity,
-          price: product.price,
-          total: product.price * quantity
+          price: clientPrice,
+          total: clientPrice * quantity
         }];
       }
     });
@@ -211,7 +216,12 @@ const ChatBot: React.FC = () => {
                 <Phone className="h-5 w-5 text-green-500 mr-2" />
                 <div>
                   <p className="font-medium text-gray-900">{selectedClient.name}</p>
-                  <p className="text-sm text-gray-500">WhatsApp - {selectedClient.zone}</p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-sm text-gray-500">WhatsApp - {selectedClient.zone}</p>
+                    <span className={`px-2 py-1 text-xs rounded-full ${getCategoryColor(selectedClient.category)}`}>
+                      {getCategoryName(selectedClient.category)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -255,7 +265,9 @@ const ChatBot: React.FC = () => {
                                   />
                                   <div>
                                     <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                                    <p className="text-xs text-gray-500">${product.price}/{product.unit}</p>
+                                    <p className="text-xs text-gray-500">
+                                      ${selectedClient ? calculatePriceForCategory(product.price, selectedClient.category) : product.price}/{product.unit}
+                                    </p>
                                   </div>
                                 </div>
                                 <button
@@ -391,7 +403,9 @@ const ChatBot: React.FC = () => {
                   />
                   <div>
                     <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                    <p className="text-xs text-gray-500">${product.price}/{product.unit}</p>
+                    <p className="text-xs text-gray-500">
+                      ${selectedClient ? calculatePriceForCategory(product.price, selectedClient.category) : product.price}/{product.unit}
+                    </p>
                   </div>
                 </div>
                 <button
