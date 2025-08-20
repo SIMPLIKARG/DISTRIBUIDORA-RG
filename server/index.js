@@ -2,17 +2,23 @@ import express from "express";
 import { Telegraf } from "telegraf";
 import { GoogleSpreadsheet } from "google-spreadsheet";
 
-const {
-  TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN,
-  PUBLIC_URL,
-  TELEGRAM_WEBhook_SECRET,
-  GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,
-  SHEET_ID
-} = process.env;
+const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY, SHEET_ID } = process.env;
+
+// Soporta ambos nombres para el token del bot
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+// Soporta ambos nombres para el secret del webhook
+const TELEGRAM_WEBhook_SECRET = process.env.TELEGRAM_WEBhook_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET;
+
+// PUBLIC_URL con auto-detección para Railway / Render / etc.
+let PUBLIC_URL = process.env.PUBLIC_URL
+  || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : "")
+  || process.env.RAILWAY_URL
+  || process.env.DEPLOY_URL
+  || process.env.RENDER_EXTERNAL_URL
+  || "";
 
 if (!TELEGRAM_TOKEN) throw new Error("Falta TELEGRAM_TOKEN");
-if (!PUBLIC_URL) throw new Error("Falta PUBLIC_URL");
+if (!PUBLIC_URL) console.warn("PUBLIC_URL no definido. Se intentará auto-detectar; también podés setearlo como env o usar /set-webhook.");
 if (!TELEGRAM_WEBhook_SECRET) throw new Error("Falta TELEGRAM_WEBhook_SECRET");
 
 const app = express();
@@ -75,6 +81,7 @@ app.get("/", (_req, res) => res.json({ ok: true }));
 const port = process.env.PORT || 3000;
 app.listen(port, async () => {
   const url = `${PUBLIC_URL}${HOOK_PATH}`;
+  if (!PUBLIC_URL) { console.warn("No se setea webhook en arranque: PUBLIC_URL vacío."); return; }
   try {
     await bot.telegram.setWebhook(url, {
       drop_pending_updates: true,
