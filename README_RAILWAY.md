@@ -21,3 +21,11 @@ Para evitar el error de `npm ci`, se agrega un `Dockerfile` en la raíz que:
 - Logs deben mostrar: `setWebhook OK -> https://.../webhook/<secret>`
 - En Telegram: `/ping` responde "pong 🏓"
 - `/add oreo 3` agrega una fila en el Google Sheet
+
+
+## Google Sheets: ID o URL
+Podés configurar **uno** de estos dos:
+- `SHEET_ID` (recomendado): el ID solo, por ej. `18vBpQh7JYYbsP34OJ9weuT1QcwGD5OCIXPpbPCwyxF4`
+- `SHEET_URL`: la URL completa del archivo (el servidor extrae el ID automáticamente)
+
+Asegurate de compartir el Sheet con el `GOOGLE_SERVICE_ACCOUNT_EMAIL` (Editor).
