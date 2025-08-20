@@ -45,13 +45,26 @@ async function openDoc() {
   }
   const sheetId = SHEET_ID || GOOGLE_SHEETS_ID || GOOGLE_SHEET_ID || extractSheetId(SHEET_URL);
   if (!sheetId) {
+    throw new Error("Sheets no configurado: faltan SHEET_ID/GOOGLE_SHEETS_ID o SHEET_URL válidos");
+  }
+  const doc = new GoogleSpreadsheet(sheetId);
+  // convertir 
+ literales en saltos reales (seguro aunque ya tenga saltos)
+  const pk = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').split(String.raw"\n").join('
+');
+  await doc.useServiceAccountAuth({ client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL, private_key: pk });
+  await doc.loadInfo();
+  return doc;
+}
+  const sheetId = SHEET_ID || GOOGLE_SHEETS_ID || GOOGLE_SHEET_ID || extractSheetId(SHEET_URL);
+  if (!sheetId) {
     throw new Error("Sheets no configurado: faltan SHEET_ID o SHEET_URL válidos");
   }
   const doc = new GoogleSpreadsheet(sheetId);
   const pk = String(process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || '').split(String.raw`\n`).join('\n');
-return raw.includes("\n") ? raw.replace(/\n/g, "
-") : raw; })(); return raw.includes("\n") ? raw.replace(/\n/g, "
-") : raw; })();
+return raw.includes("\n") ? raw.split(String.raw"\n").join('
+') : raw; })(); return raw.includes("\n") ? raw.split(String.raw"\n").join('
+') : raw; })();
   await doc.useServiceAccountAuth({ client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL, private_key: pk });
   await doc.loadInfo();
   return doc;
