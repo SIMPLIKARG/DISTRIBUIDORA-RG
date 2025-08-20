@@ -48,8 +48,9 @@ async function openDoc() {
     throw new Error("Sheets no configurado: faltan SHEET_ID o SHEET_URL válidos");
   }
   const doc = new GoogleSpreadsheet(sheetId);
-  const pk = GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY.replace(/\n/g, "
-");
+  const pk = (() => { const raw = String(GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY || ""); return raw.includes("\n") ? raw.replace(/\n/g, "
+") : raw; })(); return raw.includes("\n") ? raw.replace(/\n/g, "
+") : raw; })();
   await doc.useServiceAccountAuth({ client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL, private_key: pk });
   await doc.loadInfo();
   return doc;
