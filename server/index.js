@@ -3,7 +3,7 @@ import { Telegraf } from "telegraf";
 import { GoogleSpreadsheet } from "google-spreadsheet";
 
 const {
-  TELEGRAM_TOKEN,
+  TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN,
   PUBLIC_URL,
   TELEGRAM_WEBhook_SECRET,
   GOOGLE_SERVICE_ACCOUNT_EMAIL,
