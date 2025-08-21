@@ -697,10 +697,21 @@ async function manejarCallback(callback_query) {
     mensaje += `👤 Cliente: ${clienteNombre}\n`;
     mensaje += `📅 Fecha: ${fechaHora}\n\n`;
     mensaje += `⏳ Estado: PENDIENTE\n\n`;
-    mensaje += `🛒 PRODUCTOS:\n`;
-    nuevoPedido.items.forEach((item, index) => {
-      mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n`;
-    });
+    
+    // Limitar detalles para evitar mensaje muy largo
+    if (nuevoPedido.items.length <= 10) {
+      mensaje += `🛒 PRODUCTOS:\n`;
+      nuevoPedido.items.forEach((item, index) => {
+        mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n`;
+      });
+    } else {
+      mensaje += `🛒 PRODUCTOS (${nuevoPedido.items.length} items):\n`;
+      nuevoPedido.items.slice(0, 8).forEach((item, index) => {
+        mensaje += `${index + 1}. ${item.nombre} - ${item.cantidad}x $${item.precio}\n`;
+      });
+      mensaje += `... y ${nuevoPedido.items.length - 8} productos más\n`;
+    }
+    
     mensaje += `\n💰 TOTAL: $${nuevoPedido.total}`;
     mensaje += `\n\n⏳ Tu pedido está pendiente de confirmación`;
     
@@ -718,10 +729,39 @@ async function manejarCallback(callback_query) {
     const productos = await leerSheet('Productos');
     const productosActivos = productos.filter(p => p.activo === 'SI');
     
-    let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
-    productosActivos.forEach(prod => {
-      mensaje += `• ${prod.producto_nombre} - $${prod.precio}\n`;
+    // Dividir productos por categorías para evitar mensajes muy largos
+    const categorias = await leerSheet('Categorias');
+    const categoriaMap = {};
+    categorias.forEach(cat => {
+      categoriaMap[cat.categoria_id] = cat.categoria_nombre;
     });
+    
+    let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
+    
+    // Agrupar por categoría
+    const productosPorCategoria = {};
+    productosActivos.forEach(prod => {
+      const catNombre = categoriaMap[prod.categoria_id] || 'Sin categoría';
+      if (!productosPorCategoria[catNombre]) {
+        productosPorCategoria[catNombre] = [];
+      }
+      productosPorCategoria[catNombre].push(prod);
+    });
+    
+    // Construir mensaje por categorías (limitado)
+    let contador = 0;
+    for (const [categoria, productos] of Object.entries(productosPorCategoria)) {
+      if (contador >= 20) { // Limitar a 20 productos para evitar mensaje muy largo
+        mensaje += `\n... y ${productosActivos.length - contador} productos más`;
+        break;
+      }
+      
+      mensaje += `\n🏷️ ${categoria}:\n`;
+      productos.slice(0, 5).forEach(prod => { // Máximo 5 por categoría
+        mensaje += `• ${prod.producto_nombre} - $${prod.precio}\n`;
+        contador++;
+      });
+    }
     
     await enviarMensaje(chatId, mensaje);
   }
