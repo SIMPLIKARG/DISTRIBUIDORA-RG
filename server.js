@@ -508,6 +508,8 @@ async function manejarCallback(callback_query) {
   const userId = callback_query.from.id;
   const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
+  console.log(`📱 Callback recibido: ${data} de usuario ${userId}`);
+  
   if (data === 'hacer_pedido') {
     await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
       reply_markup: {
@@ -518,6 +520,7 @@ async function manejarCallback(callback_query) {
         ]
       }
     });
+    return;
   }
   
   if (data === 'nuevo_cliente') {
@@ -525,14 +528,28 @@ async function manejarCallback(callback_query) {
     sesionesBot.set(userId, sesion);
     
     await enviarMensaje(chatId, '➕ Escribe el nombre del nuevo cliente:');
+    return;
   }
   
   if (data === 'lista_clientes') {
     try {
       const clientes = await leerSheet('LISTADO CLIENTES');
+      console.log(`📊 Clientes encontrados: ${clientes.length}`);
+      
+      if (clientes.length === 0) {
+        await enviarMensaje(chatId, '❌ No hay clientes disponibles. Agrega uno nuevo:', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+            ]
+          }
+        });
+        return;
+      }
+      
       const keyboard = clientes.slice(0, 10).map(cliente => [{ 
-        text: `👤 ${cliente['Razón Social'] || cliente['Nombre Fantasía'] || 'Cliente sin nombre'}`, 
-        callback_data: `cliente_${cliente['Código'] || cliente.cliente_id}` 
+        text: `👤 ${cliente['Razón Social'] || cliente['Nombre Fantasía'] || cliente.nombre || 'Cliente sin nombre'}`, 
+        callback_data: `cliente_${cliente['Código'] || cliente.cliente_id || cliente.id}` 
       }]);
       
       keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
@@ -554,6 +571,7 @@ async function manejarCallback(callback_query) {
         }
       });
     }
+    return;
   }
   
   if (data === 'buscar_cliente') {
@@ -561,17 +579,18 @@ async function manejarCallback(callback_query) {
     sesionesBot.set(userId, sesion);
     
     await enviarMensaje(chatId, '✍️ Escribe el nombre del cliente (o parte del nombre):');
+    return;
   }
   
   if (data.startsWith('cliente_')) {
     const clienteCodigo = data.split('_')[1];
     try {
       const clientes = await leerSheet('LISTADO CLIENTES');
-      const cliente = clientes.find(c => (c['Código'] || c.cliente_id) == clienteCodigo);
+      const cliente = clientes.find(c => (c['Código'] || c.cliente_id || c.id) == clienteCodigo);
       
       if (cliente) {
         sesion.clienteSeleccionado = {
-          id: cliente['Código'] || cliente.cliente_id,
+          id: cliente['Código'] || cliente.cliente_id || cliente.id,
           nombre: cliente['Razón Social'] || cliente['Nombre Fantasía'] || cliente.nombre || 'Cliente'
         };
         sesion.estado = 'cliente_confirmado';
@@ -618,6 +637,7 @@ async function manejarCallback(callback_query) {
         }
       });
     }
+    return;
   }
   
   if (data === 'seleccionar_cliente') {
@@ -630,16 +650,23 @@ async function manejarCallback(callback_query) {
         ]
       }
     });
+    return;
   }
   
   if (data.startsWith('categoria_')) {
     const categoriaId = data.split('_')[1];
+    console.log(`📂 Buscando productos de categoría: ${categoriaId}`);
+    
     try {
       const productos = await leerSheet('LISTADO PRODUCTO');
+      console.log(`📦 Productos totales encontrados: ${productos.length}`);
+      
       const productosFiltrados = productos.filter(p => 
-        (p.categoria_id == categoriaId || p['categoria_id'] == categoriaId) && 
-        (p.activo === 'SI' || p['activo'] === 'SI')
+        (p.categoria_id == categoriaId || p['categoria_id'] == categoriaId || p.Categoria == categoriaId) && 
+        (p.activo === 'SI' || p['activo'] === 'SI' || p.Activo === 'SI')
       );
+      
+      console.log(`📦 Productos filtrados: ${productosFiltrados.length}`);
       
       if (productosFiltrados.length === 0) {
         await enviarMensaje(chatId, '❌ No hay productos disponibles en esta categoría', {
@@ -653,8 +680,8 @@ async function manejarCallback(callback_query) {
       }
       
       const keyboard = productosFiltrados.map(prod => [{ 
-        text: `${prod.producto_nombre || prod['producto_nombre']} - $${prod.precio || prod['precio']}`, 
-        callback_data: `producto_${prod.producto_id || prod['producto_id']}` 
+        text: `${prod.producto_nombre || prod['producto_nombre'] || prod.Producto} - $${prod.precio || prod['precio'] || prod.Precio}`, 
+        callback_data: `producto_${prod.producto_id || prod['producto_id'] || prod.ID}` 
       }]);
       
       keyboard.push([{ text: '🔙 Volver a Categorías', callback_data: 'continuar_pedido' }]);
@@ -675,21 +702,22 @@ async function manejarCallback(callback_query) {
         }
       });
     }
+    return;
   }
   
   if (data.startsWith('producto_')) {
     const productoId = data.split('_')[1];
     try {
       const productos = await leerSheet('LISTADO PRODUCTO');
-      const producto = productos.find(p => (p.producto_id || p['producto_id']) == productoId);
+      const producto = productos.find(p => (p.producto_id || p['producto_id'] || p.ID) == productoId);
       
       if (producto) {
         sesion.estado = 'esperando_cantidad';
         sesion.productoSeleccionado = {
-          producto_id: producto.producto_id || producto['producto_id'],
-          producto_nombre: producto.producto_nombre || producto['producto_nombre'],
-          precio: producto.precio || producto['precio'],
-          categoria_id: producto.categoria_id || producto['categoria_id']
+          producto_id: producto.producto_id || producto['producto_id'] || producto.ID,
+          producto_nombre: producto.producto_nombre || producto['producto_nombre'] || producto.Producto,
+          precio: parseInt(producto.precio || producto['precio'] || producto.Precio || 0),
+          categoria_id: producto.categoria_id || producto['categoria_id'] || producto.Categoria || 1
         };
         sesionesBot.set(userId, sesion);
         
@@ -713,6 +741,7 @@ async function manejarCallback(callback_query) {
         }
       });
     }
+    return;
   }
   
   if (data === 'ver_carrito') {
@@ -741,6 +770,7 @@ async function manejarCallback(callback_query) {
         }
       });
     }
+    return;
   }
   
   if (data === 'continuar_pedido') {
@@ -778,6 +808,7 @@ async function manejarCallback(callback_query) {
         }
       });
     }
+    return;
   }
   
   if (data === 'vaciar_carrito') {
@@ -792,6 +823,7 @@ async function manejarCallback(callback_query) {
         ]
       }
     });
+    return;
   }
   
   if (data === 'finalizar_pedido') {
@@ -874,22 +906,30 @@ async function manejarCallback(callback_query) {
         ]
       }
     });
+    return;
   }
   
   if (data === 'ver_productos') {
     try {
       const productos = await leerSheet('LISTADO PRODUCTO');
-      const productosActivos = productos.filter(p => 
-        (p.activo === 'SI' || p['activo'] === 'SI')
-      );
+      console.log(`📦 Productos encontrados para mostrar: ${productos.length}`);
       
-      let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
-      productosActivos.slice(0, 20).forEach(prod => {
-        mensaje += `• ${prod.producto_nombre || prod['producto_nombre']} - $${prod.precio || prod['precio']}\n`;
+      const productosActivos = productos.filter(p => {
+        const activo = p.activo || p['activo'] || p.Activo || 'SI';
+        return activo === 'SI';
       });
       
-      if (productosActivos.length > 20) {
-        mensaje += `\n... y ${productosActivos.length - 20} productos más`;
+      console.log(`📦 Productos activos: ${productosActivos.length}`);
+      
+      let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
+      productosActivos.slice(0, 15).forEach(prod => {
+        const nombre = prod.producto_nombre || prod['producto_nombre'] || prod.Producto || 'Producto';
+        const precio = prod.precio || prod['precio'] || prod.Precio || 0;
+        mensaje += `• ${nombre} - $${precio}\n`;
+      });
+      
+      if (productosActivos.length > 15) {
+        mensaje += `\n... y ${productosActivos.length - 15} productos más`;
       }
       
       await enviarMensaje(chatId, mensaje, {
@@ -909,6 +949,37 @@ async function manejarCallback(callback_query) {
         }
       });
     }
+    return;
+  }
+  
+  if (data === 'ayuda') {
+    const mensajeAyuda = `🤖 **AYUDA - Bot Distribuidora**
+
+**Comandos disponibles:**
+• /start - Iniciar el bot
+• Hacer Pedido - Crear un nuevo pedido
+• Ver Productos - Ver catálogo completo
+
+**¿Cómo hacer un pedido?**
+1. Selecciona "Hacer Pedido"
+2. Elige o agrega un cliente
+3. Selecciona categoría de productos
+4. Elige productos y cantidades
+5. Revisa tu carrito
+6. Finaliza el pedido
+
+**¿Problemas?**
+Si algo no funciona, usa /start para reiniciar.`;
+
+    await enviarMensaje(chatId, mensajeAyuda, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '📋 Ver Productos', callback_data: 'ver_productos' }]
+        ]
+      }
+    });
+    return;
   }
 }
 
