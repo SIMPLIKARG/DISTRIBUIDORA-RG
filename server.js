@@ -4,6 +4,16 @@ import { GoogleAuth } from 'google-auth-library';
 import { google } from 'googleapis';
 import dotenv from 'dotenv';
 
+// Suprimir TODOS los warnings de deprecación
+process.removeAllListeners('warning');
+process.on('warning', () => {
+  // Suprimir completamente todos los warnings
+});
+
+// Suprimir warnings específicos de Node.js
+process.env.NODE_NO_WARNINGS = '1';
+process.env.NODE_OPTIONS = '--no-deprecation --no-warnings';
+
 dotenv.config();
 
 const app = express();
@@ -499,50 +509,15 @@ async function manejarCallback(callback_query) {
   const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
   if (data === 'hacer_pedido') {
-    // Si ya hay un cliente seleccionado, ir directo a categorías
-    if (sesion.clienteSeleccionado) {
-      // Obtener categorías de productos (no de clientes)
-      const productos = await leerSheet('LISTADO PRODUCTO');
-      const categoriasSet = new Set();
-      productos.forEach(producto => {
-        if (producto.categoria_id) {
-          categoriasSet.add(producto.categoria_id);
-        }
-      });
-      
-      // Crear categorías básicas para productos
-      const categorias = [
-        { categoria_id: 1, categoria_nombre: 'Galletitas' },
-        { categoria_id: 2, categoria_nombre: 'Bebidas' },
-        { categoria_id: 3, categoria_nombre: 'Lácteos' },
-        { categoria_id: 4, categoria_nombre: 'Panadería' },
-        { categoria_id: 5, categoria_nombre: 'Conservas' }
-      ];
-      
-      const keyboard = categorias.map(cat => [{ 
-        text: cat.categoria_nombre, 
-        callback_data: `categoria_${cat.categoria_id}` 
-      }]);
-      
-      await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado.nombre}\n\n📂 Selecciona una categoría:`, {
-        reply_markup: { 
-          inline_keyboard: [
-            ...keyboard,
-            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
-          ]
-        }
-      });
-    } else {
-      await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
-            [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
-            [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
-          ]
-        }
-      });
-    }
+    await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
+          [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
+          [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+        ]
+      }
+    });
   }
   
   if (data === 'nuevo_cliente') {
@@ -553,20 +528,32 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'lista_clientes') {
-    const clientes = await leerSheet('LISTADO CLIENTES');
-    const keyboard = clientes.slice(0, 10).map(cliente => [{ 
-      text: `👤 ${cliente['Razón Social'] || cliente['Nombre Fantasía']}`, 
-      callback_data: `cliente_${cliente['Código']}` 
-    }]);
-    
-    keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
-    keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
-    
-    await enviarMensaje(chatId, '👥 Selecciona un cliente:', {
-      reply_markup: {
-        inline_keyboard: keyboard
-      }
-    });
+    try {
+      const clientes = await leerSheet('LISTADO CLIENTES');
+      const keyboard = clientes.slice(0, 10).map(cliente => [{ 
+        text: `👤 ${cliente['Razón Social'] || cliente['Nombre Fantasía'] || 'Cliente sin nombre'}`, 
+        callback_data: `cliente_${cliente['Código'] || cliente.cliente_id}` 
+      }]);
+      
+      keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
+      keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
+      
+      await enviarMensaje(chatId, '👥 Selecciona un cliente:', {
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error obteniendo clientes:', error);
+      await enviarMensaje(chatId, '❌ Error obteniendo lista de clientes. Intenta de nuevo.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Reintentar', callback_data: 'lista_clientes' }],
+            [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+          ]
+        }
+      });
+    }
   }
   
   if (data === 'buscar_cliente') {
@@ -578,33 +565,55 @@ async function manejarCallback(callback_query) {
   
   if (data.startsWith('cliente_')) {
     const clienteCodigo = data.split('_')[1];
-    const clientes = await leerSheet('LISTADO CLIENTES');
-    const cliente = clientes.find(c => c['Código'] == clienteCodigo);
-    
-    if (cliente) {
-      sesion.clienteSeleccionado = cliente;
-      sesion.estado = 'cliente_confirmado';
-      sesionesBot.set(userId, sesion);
+    try {
+      const clientes = await leerSheet('LISTADO CLIENTES');
+      const cliente = clientes.find(c => (c['Código'] || c.cliente_id) == clienteCodigo);
       
-      // Categorías de productos
-      const categorias = [
-        { categoria_id: 1, categoria_nombre: 'Galletitas' },
-        { categoria_id: 2, categoria_nombre: 'Bebidas' },
-        { categoria_id: 3, categoria_nombre: 'Lácteos' },
-        { categoria_id: 4, categoria_nombre: 'Panadería' },
-        { categoria_id: 5, categoria_nombre: 'Conservas' }
-      ];
-      
-      const keyboard = categorias.map(cat => [{ 
-        text: cat.categoria_nombre, 
-        callback_data: `categoria_${cat.categoria_id}` 
-      }]);
-      
-      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${cliente['Razón Social'] || cliente['Nombre Fantasía']}\n\n📂 Selecciona una categoría:`, {
+      if (cliente) {
+        sesion.clienteSeleccionado = {
+          id: cliente['Código'] || cliente.cliente_id,
+          nombre: cliente['Razón Social'] || cliente['Nombre Fantasía'] || cliente.nombre || 'Cliente'
+        };
+        sesion.estado = 'cliente_confirmado';
+        sesionesBot.set(userId, sesion);
+        
+        // Categorías de productos
+        const categorias = [
+          { categoria_id: 1, categoria_nombre: 'Galletitas' },
+          { categoria_id: 2, categoria_nombre: 'Bebidas' },
+          { categoria_id: 3, categoria_nombre: 'Lácteos' },
+          { categoria_id: 4, categoria_nombre: 'Panadería' },
+          { categoria_id: 5, categoria_nombre: 'Conservas' }
+        ];
+        
+        const keyboard = categorias.map(cat => [{ 
+          text: cat.categoria_nombre, 
+          callback_data: `categoria_${cat.categoria_id}` 
+        }]);
+        
+        await enviarMensaje(chatId, `✅ Cliente seleccionado: ${sesion.clienteSeleccionado.nombre}\n\n📂 Selecciona una categoría:`, {
+          reply_markup: {
+            inline_keyboard: [
+              ...keyboard,
+              [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+            ]
+          }
+        });
+      } else {
+        await enviarMensaje(chatId, '❌ Cliente no encontrado', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📋 Ver Lista', callback_data: 'lista_clientes' }]
+            ]
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error seleccionando cliente:', error);
+      await enviarMensaje(chatId, '❌ Error seleccionando cliente. Intenta de nuevo.', {
         reply_markup: {
           inline_keyboard: [
-            ...keyboard,
-            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+            [{ text: '📋 Ver Lista', callback_data: 'lista_clientes' }]
           ]
         }
       });
@@ -623,33 +632,86 @@ async function manejarCallback(callback_query) {
     });
   }
   
-  
   if (data.startsWith('categoria_')) {
     const categoriaId = data.split('_')[1];
-    const productos = await leerSheet('LISTADO PRODUCTO');
-    const productosFiltrados = productos.filter(p => p.categoria_id == categoriaId && p.activo === 'SI');
-    
-    const keyboard = productosFiltrados.map(prod => [{ 
-      text: `${prod.producto_nombre} - $${prod.precio}`, 
-      callback_data: `producto_${prod.producto_id}` 
-    }]);
-    
-    await enviarMensaje(chatId, '🛍️ Selecciona un producto:', {
-      reply_markup: { inline_keyboard: keyboard }
-    });
+    try {
+      const productos = await leerSheet('LISTADO PRODUCTO');
+      const productosFiltrados = productos.filter(p => 
+        (p.categoria_id == categoriaId || p['categoria_id'] == categoriaId) && 
+        (p.activo === 'SI' || p['activo'] === 'SI')
+      );
+      
+      if (productosFiltrados.length === 0) {
+        await enviarMensaje(chatId, '❌ No hay productos disponibles en esta categoría', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Volver a Categorías', callback_data: 'continuar_pedido' }]
+            ]
+          }
+        });
+        return;
+      }
+      
+      const keyboard = productosFiltrados.map(prod => [{ 
+        text: `${prod.producto_nombre || prod['producto_nombre']} - $${prod.precio || prod['precio']}`, 
+        callback_data: `producto_${prod.producto_id || prod['producto_id']}` 
+      }]);
+      
+      keyboard.push([{ text: '🔙 Volver a Categorías', callback_data: 'continuar_pedido' }]);
+      
+      await enviarMensaje(chatId, '🛍️ Selecciona un producto:', {
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    } catch (error) {
+      console.error('Error obteniendo productos:', error);
+      await enviarMensaje(chatId, '❌ Error obteniendo productos. Intenta de nuevo.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Reintentar', callback_data: `categoria_${categoriaId}` }],
+            [{ text: '🔙 Volver', callback_data: 'continuar_pedido' }]
+          ]
+        }
+      });
+    }
   }
   
   if (data.startsWith('producto_')) {
     const productoId = data.split('_')[1];
-    const productos = await leerSheet('LISTADO PRODUCTO');
-    const producto = productos.find(p => p.producto_id == productoId);
-    
-    if (producto) {
-      sesion.estado = 'esperando_cantidad';
-      sesion.productoSeleccionado = producto;
-      sesionesBot.set(userId, sesion);
+    try {
+      const productos = await leerSheet('LISTADO PRODUCTO');
+      const producto = productos.find(p => (p.producto_id || p['producto_id']) == productoId);
       
-      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres? (1-50)`);
+      if (producto) {
+        sesion.estado = 'esperando_cantidad';
+        sesion.productoSeleccionado = {
+          producto_id: producto.producto_id || producto['producto_id'],
+          producto_nombre: producto.producto_nombre || producto['producto_nombre'],
+          precio: producto.precio || producto['precio'],
+          categoria_id: producto.categoria_id || producto['categoria_id']
+        };
+        sesionesBot.set(userId, sesion);
+        
+        await enviarMensaje(chatId, `📦 ${sesion.productoSeleccionado.producto_nombre}\n💰 Precio: $${sesion.productoSeleccionado.precio}\n\n¿Cuántas unidades quieres? (1-50)`);
+      } else {
+        await enviarMensaje(chatId, '❌ Producto no encontrado', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔙 Volver', callback_data: 'continuar_pedido' }]
+            ]
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error obteniendo producto:', error);
+      await enviarMensaje(chatId, '❌ Error obteniendo producto. Intenta de nuevo.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Volver', callback_data: 'continuar_pedido' }]
+          ]
+        }
+      });
     }
   }
   
@@ -682,31 +744,40 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'continuar_pedido') {
-    // Categorías de productos
-    const categorias = [
-      { categoria_id: 1, categoria_nombre: 'Galletitas' },
-      { categoria_id: 2, categoria_nombre: 'Bebidas' },
-      { categoria_id: 3, categoria_nombre: 'Lácteos' },
-      { categoria_id: 4, categoria_nombre: 'Panadería' },
-      { categoria_id: 5, categoria_nombre: 'Conservas' }
-    ];
-    
-    const keyboard = categorias.map(cat => [{ 
-      text: cat.categoria_nombre, 
-      callback_data: `categoria_${cat.categoria_id}` 
-    }]);
-    
-    await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado?.nombre || 'No seleccionado'}\n\n📂 Selecciona una categoría:`, {
+    if (!sesion.clienteSeleccionado) {
+      await enviarMensaje(chatId, '👤 Primero selecciona un cliente:', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
+            [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
+            [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+          ]
+        }
+      });
+    } else {
+      // Categorías de productos
+      const categorias = [
+        { categoria_id: 1, categoria_nombre: 'Galletitas' },
+        { categoria_id: 2, categoria_nombre: 'Bebidas' },
+        { categoria_id: 3, categoria_nombre: 'Lácteos' },
+        { categoria_id: 4, categoria_nombre: 'Panadería' },
+        { categoria_id: 5, categoria_nombre: 'Conservas' }
+      ];
+      
+      const keyboard = categorias.map(cat => [{ 
+        text: cat.categoria_nombre, 
+        callback_data: `categoria_${cat.categoria_id}` 
+      }]);
+      
+      await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado.nombre}\n\n📂 Selecciona una categoría:`, {
+        reply_markup: { 
+          inline_keyboard: [
+            ...keyboard,
+            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+          ]
+        }
+      });
     }
-    )
-    await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado?.['Razón Social'] || sesion.clienteSeleccionado?.['Nombre Fantasía'] || 'No seleccionado'}\n\n📂 Selecciona una categoría:`, {
-      reply_markup: { 
-        inline_keyboard: [
-          ...keyboard,
-          [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
-        ]
-      }
-    });
   }
   
   if (data === 'vaciar_carrito') {
@@ -743,8 +814,8 @@ async function manejarCallback(callback_query) {
     // Crear pedido
     const pedidoId = `PED${String(contadorPedidos++).padStart(3, '0')}`;
     const fechaHora = new Date().toLocaleString('es-AR');
-    const clienteNombre = sesion.clienteSeleccionado['Razón Social'] || sesion.clienteSeleccionado['Nombre Fantasía'];
-    const clienteId = sesion.clienteSeleccionado['Código'];
+    const clienteNombre = sesion.clienteSeleccionado.nombre;
+    const clienteId = sesion.clienteSeleccionado.id;
     
     const nuevoPedido = {
       pedido_id: pedidoId,
@@ -806,15 +877,38 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'ver_productos') {
-    const productos = await leerSheet('LISTADO PRODUCTO');
-    const productosActivos = productos.filter(p => p.activo === 'SI');
-    
-    let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
-    productosActivos.forEach(prod => {
-      mensaje += `• ${prod.producto_nombre} - $${prod.precio}\n`;
-    });
-    
-    await enviarMensaje(chatId, mensaje);
+    try {
+      const productos = await leerSheet('LISTADO PRODUCTO');
+      const productosActivos = productos.filter(p => 
+        (p.activo === 'SI' || p['activo'] === 'SI')
+      );
+      
+      let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
+      productosActivos.slice(0, 20).forEach(prod => {
+        mensaje += `• ${prod.producto_nombre || prod['producto_nombre']} - $${prod.precio || prod['precio']}\n`;
+      });
+      
+      if (productosActivos.length > 20) {
+        mensaje += `\n... y ${productosActivos.length - 20} productos más`;
+      }
+      
+      await enviarMensaje(chatId, mensaje, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
+          ]
+        }
+      });
+    } catch (error) {
+      console.error('Error obteniendo productos:', error);
+      await enviarMensaje(chatId, '❌ Error obteniendo productos. Intenta de nuevo.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔄 Reintentar', callback_data: 'ver_productos' }]
+          ]
+        }
+      });
+    }
   }
 }
 

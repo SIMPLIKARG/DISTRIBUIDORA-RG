@@ -5,9 +5,10 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --no-deprecation --no-warnings server.js",
     "dev": "node server.js",
-    "postinstall": "echo 'Dependencies installed successfully'"
+    "postinstall": "echo 'Dependencies installed successfully'",
+    "start:clean": "node --no-deprecation --no-warnings server.js"
   },
   "keywords": ["telegram", "bot", "distribuidora", "google-sheets", "railway"],
   "author": "Sistema Distribuidora",
