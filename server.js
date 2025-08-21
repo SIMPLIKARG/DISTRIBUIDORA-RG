@@ -440,7 +440,7 @@ async function manejarCallback(callback_query) {
   try {
     if (data === 'hacer_pedido') {
       console.log('🛍️ DEBUG - Procesando "hacer_pedido"');
-      // Mostrar lista de clientes
+      // Mostrar lista simple de todos los clientes
       let clientes = await leerSheet('LISTADO CLIENTES');
       console.log(`👥 DEBUG - Clientes obtenidos: ${clientes.length}`);
       
@@ -449,51 +449,14 @@ async function manejarCallback(callback_query) {
         clientes = datosEjemplo.clientes;
       }
       
-      // Agrupar clientes por localidad
-      const clientesPorLocalidad = {};
-      clientes.forEach(cliente => {
-        const localidad = cliente.Localidad || 'Sin Localidad';
-        if (!clientesPorLocalidad[localidad]) {
-          clientesPorLocalidad[localidad] = [];
-        }
-        clientesPorLocalidad[localidad].push(cliente);
-      });
-      
-      console.log(`🏘️ DEBUG - Localidades encontradas:`, Object.keys(clientesPorLocalidad));
-      
-      // Crear teclado con localidades
-      const keyboard = Object.keys(clientesPorLocalidad).sort().slice(0, 15).map(localidad => [{ 
-        text: `📍 ${localidad} (${clientesPorLocalidad[localidad].length})`, 
-        callback_data: `localidad_${localidad}` 
-      }]);
-      
-      console.log(`⌨️ DEBUG - Teclado generado con ${keyboard.length} opciones`);
-      await enviarMensaje(chatId, '📍 Selecciona una localidad:', {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-    }
-    
-    if (data.startsWith('localidad_')) {
-      const localidad = data.split('_')[1];
-      console.log(`📍 DEBUG - Localidad seleccionada: ${localidad}`);
-      
-      let clientes = await leerSheet('LISTADO CLIENTES');
-      if (clientes.length === 0) {
-        clientes = datosEjemplo.clientes;
-      }
-      
-      const clientesFiltrados = clientes.filter(c => (c.Localidad || 'Sin Localidad') === localidad);
-      console.log(`👥 DEBUG - Clientes en ${localidad}: ${clientesFiltrados.length}`);
-      
-      const keyboard = clientesFiltrados.slice(0, 20).map(cliente => [{ 
-        text: cliente['Razón Social'], 
+      // Crear teclado directo con todos los clientes (máximo 20)
+      const keyboard = clientes.slice(0, 20).map(cliente => [{ 
+        text: `${cliente['Razón Social']} - ${cliente.Localidad}`, 
         callback_data: `cliente_${cliente.Código}` 
       }]);
       
-      // Agregar botón para volver
-      keyboard.push([{ text: '🔙 Volver a localidades', callback_data: 'hacer_pedido' }]);
-      
-      await enviarMensaje(chatId, `👤 Clientes en ${localidad}:\n\nSelecciona un cliente:`, {
+      console.log(`⌨️ DEBUG - Teclado de clientes generado con ${keyboard.length} opciones`);
+      await enviarMensaje(chatId, '👤 Selecciona un cliente:', {
         reply_markup: { inline_keyboard: keyboard }
       });
     }
@@ -515,7 +478,7 @@ async function manejarCallback(callback_query) {
         sesion.estado = 'cliente_seleccionado';
         sesionesBot.set(userId, sesion);
         
-        // Mostrar rubros
+        // Mostrar rubros directamente
         let productos = await leerSheet('LISTADO PRODUCTO');
         console.log(`📦 DEBUG - Productos obtenidos: ${productos.length}`);
         
@@ -532,7 +495,7 @@ async function manejarCallback(callback_query) {
         }]);
         
         console.log(`⌨️ DEBUG - Teclado de rubros con ${keyboard.length} opciones`);
-        await enviarMensaje(chatId, `✅ Cliente: ${cliente['Razón Social']}\n📍 Localidad: ${cliente.Localidad}\n\n📂 Selecciona una categoría:`, {
+        await enviarMensaje(chatId, `✅ Cliente: ${cliente['Razón Social']} (${cliente.Localidad})\n\n📂 Selecciona una categoría:`, {
           reply_markup: { inline_keyboard: keyboard }
         });
       }
