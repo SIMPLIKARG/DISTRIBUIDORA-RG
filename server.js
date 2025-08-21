@@ -55,12 +55,12 @@ async function verificarGoogleSheets() {
     
     // Verificar que existan las hojas necesarias
     const existingSheets = response.data.sheets?.map(sheet => sheet.properties?.title) || [];
-    const requiredSheets = ['Clientes', 'Categorias', 'Productos', 'Pedidos'];
+    const requiredSheets = ['LISTADO CLIENTES', 'LISTADO PRODUCTO', 'Pedidos', 'DetallePedidos'];
     
     for (const sheetName of requiredSheets) {
       if (!existingSheets.includes(sheetName)) {
         console.error(`❌ Falta la hoja: "${sheetName}"`);
-        console.error('🔧 Crea las hojas: Clientes, Categorias, Productos, Pedidos');
+        console.error('🔧 Crea las hojas: LISTADO CLIENTES, LISTADO PRODUCTO, Pedidos, DetallePedidos');
         process.exit(1);
       }
     }
@@ -71,7 +71,7 @@ async function verificarGoogleSheets() {
     console.error('🔧 Verifica que:');
     console.error('   1. El SPREADSHEET_ID sea correcto');
     console.error('   2. La cuenta de servicio tenga acceso');
-    console.error('   3. Las hojas Clientes, Categorias, Productos, Pedidos existan');
+    console.error('   3. Las hojas LISTADO CLIENTES, LISTADO PRODUCTO, Pedidos, DetallePedidos existan');
     process.exit(1);
   }
 }
@@ -144,18 +144,47 @@ async function escribirSheet(nombreHoja, datos) {
 
 // API Routes
 app.get('/api/clientes', async (req, res) => {
-  const clientes = await leerSheet('Clientes');
-  res.json(clientes);
+  try {
+    const clientes = await leerSheet('LISTADO CLIENTES');
+    res.json(clientes);
+  } catch (error) {
+    console.error('Error obteniendo clientes:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 app.get('/api/categorias', async (req, res) => {
-  const categorias = await leerSheet('Categorias');
-  res.json(categorias);
+  try {
+    const clientes = await leerSheet('LISTADO CLIENTES');
+    // Extraer categorías únicas de la columna "Lista de Precios"
+    const categoriasSet = new Set();
+    clientes.forEach(cliente => {
+      if (cliente['Lista de Precios']) {
+        categoriasSet.add(cliente['Lista de Precios']);
+      }
+    });
+    
+    // Convertir a formato de categorías con ID
+    const categorias = Array.from(categoriasSet).map((nombre, index) => ({
+      categoria_id: index + 1,
+      categoria_nombre: nombre
+    }));
+    
+    res.json(categorias);
+  } catch (error) {
+    console.error('Error obteniendo categorías:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 app.get('/api/productos', async (req, res) => {
-  const productos = await leerSheet('Productos');
-  res.json(productos);
+  try {
+    const productos = await leerSheet('LISTADO PRODUCTO');
+    res.json(productos);
+  } catch (error) {
+    console.error('Error obteniendo productos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 app.get('/api/pedidos', async (req, res) => {
@@ -164,8 +193,8 @@ app.get('/api/pedidos', async (req, res) => {
 });
 
 app.get('/api/stats', async (req, res) => {
-  const clientes = await leerSheet('Clientes');
-  const productos = await leerSheet('Productos');
+  const clientes = await leerSheet('LISTADO CLIENTES');
+  const productos = await leerSheet('LISTADO PRODUCTO');
   const pedidos = await leerSheet('Pedidos');
   
   const stats = {
@@ -294,9 +323,10 @@ async function manejarMensaje(message) {
   
   // Manejar selección de cliente por nombre
   if (sesion.estado === 'esperando_cliente') {
-    const clientes = await leerSheet('Clientes');
+    const clientes = await leerSheet('LISTADO CLIENTES');
     const clientesEncontrados = clientes.filter(c => 
-      c.nombre.toLowerCase().includes(texto.toLowerCase())
+      (c['Razón Social'] && c['Razón Social'].toLowerCase().includes(texto.toLowerCase())) ||
+      (c['Nombre Fantasía'] && c['Nombre Fantasía'].toLowerCase().includes(texto.toLowerCase()))
     );
     
     if (clientesEncontrados.length === 0) {
@@ -314,7 +344,7 @@ async function manejarMensaje(message) {
         callback_data: `categoria_${cat.categoria_id}` 
       }]);
       
-      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${clienteEncontrado.nombre}\n\n📂 Selecciona una categoría:`, {
+      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${clienteEncontrado['Razón Social'] || clienteEncontrado['Nombre Fantasía']}\n\n📂 Selecciona una categoría:`, {
         reply_markup: {
           inline_keyboard: [
             ...keyboard,
@@ -325,8 +355,8 @@ async function manejarMensaje(message) {
     } else {
       // Múltiples clientes encontrados, mostrar opciones
       const keyboard = clientesEncontrados.slice(0, 10).map(cliente => [{ 
-        text: `👤 ${cliente.nombre}`, 
-        callback_data: `cliente_${cliente.cliente_id}` 
+        text: `👤 ${cliente['Razón Social'] || cliente['Nombre Fantasía']}`, 
+        callback_data: `cliente_${cliente['Código']}` 
       }]);
       
       keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_cliente' }]);
@@ -352,22 +382,53 @@ async function manejarMensaje(message) {
     
     try {
       // Obtener el próximo ID de cliente
-      const clientes = await leerSheet('Clientes');
-      const maxId = Math.max(...clientes.map(c => parseInt(c.cliente_id) || 0));
+      const clientes = await leerSheet('LISTADO CLIENTES');
+      const maxId = Math.max(...clientes.map(c => parseInt(c['Código']) || 0));
       const nuevoId = maxId + 1;
       
       // Agregar cliente a Google Sheets
-      await escribirSheet('Clientes', [nuevoId, nombreCliente]);
+      await escribirSheet('LISTADO CLIENTES', [
+        'SI', // Activo
+        nuevoId, // Código
+        nombreCliente, // Razón Social
+        '', // Nombre Fantasía
+        'DNI', // Tipo de Documento
+        '99', // CUIT
+        '', // Dirección
+        '', // Localidad
+        '', // Código Postal
+        '', // Provincia
+        '', // País
+        '', // Teléfono 1
+        '', // Teléfono 2
+        '', // Teléfono 3
+        '', // Fax 1
+        '', // Fax 2
+        '', // Fax 3
+        'CONSUMIDOR FINAL', // Condición Frente al IVA
+        '', // Tipo de Cliente
+        '', // E-Mail
+        '1', // Lista de Precios
+        '  -   -' // Fecha Nacimiento
+      ]);
       
       // Seleccionar el nuevo cliente
       sesion.clienteSeleccionado = {
-        cliente_id: nuevoId,
-        nombre: nombreCliente
+        'Código': nuevoId,
+        'Razón Social': nombreCliente
       };
       sesion.estado = 'cliente_confirmado';
       sesionesBot.set(userId, sesion);
       
-      const categorias = await leerSheet('Categorias');
+      // Categorías de productos
+      const categorias = [
+        { categoria_id: 1, categoria_nombre: 'Galletitas' },
+        { categoria_id: 2, categoria_nombre: 'Bebidas' },
+        { categoria_id: 3, categoria_nombre: 'Lácteos' },
+        { categoria_id: 4, categoria_nombre: 'Panadería' },
+        { categoria_id: 5, categoria_nombre: 'Conservas' }
+      ];
+      
       const keyboard = categorias.map(cat => [{ 
         text: cat.categoria_nombre, 
         callback_data: `categoria_${cat.categoria_id}` 
@@ -400,7 +461,7 @@ async function manejarMensaje(message) {
     const cantidad = parseInt(texto);
     const producto = sesion.productoSeleccionado;
     
-    if (cantidad > 0) {
+    if (cantidad > 0 && cantidad <= 50) {
       const importe = producto.precio * cantidad;
       sesion.pedido.items.push({
         producto_id: producto.producto_id,
@@ -425,7 +486,7 @@ async function manejarMensaje(message) {
       
       sesionesBot.set(userId, sesion);
     } else {
-      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número mayor a 0:');
+      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número entre 1 y 50:');
     }
   }
 }
@@ -440,7 +501,24 @@ async function manejarCallback(callback_query) {
   if (data === 'hacer_pedido') {
     // Si ya hay un cliente seleccionado, ir directo a categorías
     if (sesion.clienteSeleccionado) {
-      const categorias = await leerSheet('Categorias');
+      // Obtener categorías de productos (no de clientes)
+      const productos = await leerSheet('LISTADO PRODUCTO');
+      const categoriasSet = new Set();
+      productos.forEach(producto => {
+        if (producto.categoria_id) {
+          categoriasSet.add(producto.categoria_id);
+        }
+      });
+      
+      // Crear categorías básicas para productos
+      const categorias = [
+        { categoria_id: 1, categoria_nombre: 'Galletitas' },
+        { categoria_id: 2, categoria_nombre: 'Bebidas' },
+        { categoria_id: 3, categoria_nombre: 'Lácteos' },
+        { categoria_id: 4, categoria_nombre: 'Panadería' },
+        { categoria_id: 5, categoria_nombre: 'Conservas' }
+      ];
+      
       const keyboard = categorias.map(cat => [{ 
         text: cat.categoria_nombre, 
         callback_data: `categoria_${cat.categoria_id}` 
@@ -475,10 +553,10 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'lista_clientes') {
-    const clientes = await leerSheet('Clientes');
+    const clientes = await leerSheet('LISTADO CLIENTES');
     const keyboard = clientes.slice(0, 10).map(cliente => [{ 
-      text: `👤 ${cliente.nombre}`, 
-      callback_data: `cliente_${cliente.cliente_id}` 
+      text: `👤 ${cliente['Razón Social'] || cliente['Nombre Fantasía']}`, 
+      callback_data: `cliente_${cliente['Código']}` 
     }]);
     
     keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
@@ -499,22 +577,30 @@ async function manejarCallback(callback_query) {
   }
   
   if (data.startsWith('cliente_')) {
-    const clienteId = data.split('_')[1];
-    const clientes = await leerSheet('Clientes');
-    const cliente = clientes.find(c => c.cliente_id == clienteId);
+    const clienteCodigo = data.split('_')[1];
+    const clientes = await leerSheet('LISTADO CLIENTES');
+    const cliente = clientes.find(c => c['Código'] == clienteCodigo);
     
     if (cliente) {
       sesion.clienteSeleccionado = cliente;
       sesion.estado = 'cliente_confirmado';
       sesionesBot.set(userId, sesion);
       
-      const categorias = await leerSheet('Categorias');
+      // Categorías de productos
+      const categorias = [
+        { categoria_id: 1, categoria_nombre: 'Galletitas' },
+        { categoria_id: 2, categoria_nombre: 'Bebidas' },
+        { categoria_id: 3, categoria_nombre: 'Lácteos' },
+        { categoria_id: 4, categoria_nombre: 'Panadería' },
+        { categoria_id: 5, categoria_nombre: 'Conservas' }
+      ];
+      
       const keyboard = categorias.map(cat => [{ 
         text: cat.categoria_nombre, 
         callback_data: `categoria_${cat.categoria_id}` 
       }]);
       
-      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${cliente.nombre}\n\n📂 Selecciona una categoría:`, {
+      await enviarMensaje(chatId, `✅ Cliente seleccionado: ${cliente['Razón Social'] || cliente['Nombre Fantasía']}\n\n📂 Selecciona una categoría:`, {
         reply_markup: {
           inline_keyboard: [
             ...keyboard,
@@ -540,7 +626,7 @@ async function manejarCallback(callback_query) {
   
   if (data.startsWith('categoria_')) {
     const categoriaId = data.split('_')[1];
-    const productos = await leerSheet('Productos');
+    const productos = await leerSheet('LISTADO PRODUCTO');
     const productosFiltrados = productos.filter(p => p.categoria_id == categoriaId && p.activo === 'SI');
     
     const keyboard = productosFiltrados.map(prod => [{ 
@@ -555,7 +641,7 @@ async function manejarCallback(callback_query) {
   
   if (data.startsWith('producto_')) {
     const productoId = data.split('_')[1];
-    const productos = await leerSheet('Productos');
+    const productos = await leerSheet('LISTADO PRODUCTO');
     const producto = productos.find(p => p.producto_id == productoId);
     
     if (producto) {
@@ -563,7 +649,7 @@ async function manejarCallback(callback_query) {
       sesion.productoSeleccionado = producto;
       sesionesBot.set(userId, sesion);
       
-      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres?`);
+      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres? (1-50)`);
     }
   }
   
@@ -596,13 +682,24 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'continuar_pedido') {
-    const categorias = await leerSheet('Categorias');
+    // Categorías de productos
+    const categorias = [
+      { categoria_id: 1, categoria_nombre: 'Galletitas' },
+      { categoria_id: 2, categoria_nombre: 'Bebidas' },
+      { categoria_id: 3, categoria_nombre: 'Lácteos' },
+      { categoria_id: 4, categoria_nombre: 'Panadería' },
+      { categoria_id: 5, categoria_nombre: 'Conservas' }
+    ];
+    
     const keyboard = categorias.map(cat => [{ 
       text: cat.categoria_nombre, 
       callback_data: `categoria_${cat.categoria_id}` 
     }]);
     
     await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado?.nombre || 'No seleccionado'}\n\n📂 Selecciona una categoría:`, {
+    }
+    )
+    await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado?.['Razón Social'] || sesion.clienteSeleccionado?.['Nombre Fantasía'] || 'No seleccionado'}\n\n📂 Selecciona una categoría:`, {
       reply_markup: { 
         inline_keyboard: [
           ...keyboard,
@@ -643,20 +740,11 @@ async function manejarCallback(callback_query) {
       return;
     }
     
-    // Obtener el próximo número de pedido
-    const pedidosExistentes = await leerSheet('Pedidos');
-    const numerosExistentes = pedidosExistentes
-      .map(p => p.pedido_id)
-      .filter(id => id && id.startsWith('PED'))
-      .map(id => parseInt(id.replace('PED', '')))
-      .filter(num => !isNaN(num));
-    
-    const proximoNumero = numerosExistentes.length > 0 ? Math.max(...numerosExistentes) + 1 : 1;
-    const pedidoId = `PED${String(proximoNumero).padStart(3, '0')}`;
-    
+    // Crear pedido
+    const pedidoId = `PED${String(contadorPedidos++).padStart(3, '0')}`;
     const fechaHora = new Date().toLocaleString('es-AR');
-    const clienteNombre = sesion.clienteSeleccionado.nombre;
-    const clienteId = sesion.clienteSeleccionado.cliente_id;
+    const clienteNombre = sesion.clienteSeleccionado['Razón Social'] || sesion.clienteSeleccionado['Nombre Fantasía'];
+    const clienteId = sesion.clienteSeleccionado['Código'];
     
     const nuevoPedido = {
       pedido_id: pedidoId,
@@ -678,7 +766,7 @@ async function manejarCallback(callback_query) {
     // Guardar detalles del pedido en DetallePedidos
     for (let i = 0; i < sesion.pedido.items.length; i++) {
       const item = sesion.pedido.items[i];
-      const detalleId = `DET${String(proximoNumero).padStart(3, '0')}_${i + 1}`;
+      const detalleId = `DET${String(contadorPedidos).padStart(3, '0')}_${i + 1}`;
       
       await escribirSheet('DetallePedidos', [
         detalleId,
@@ -718,7 +806,7 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'ver_productos') {
-    const productos = await leerSheet('Productos');
+    const productos = await leerSheet('LISTADO PRODUCTO');
     const productosActivos = productos.filter(p => p.activo === 'SI');
     
     let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
@@ -794,8 +882,8 @@ app.get('/health', (req, res) => {
 app.get('/test-sheets', async (req, res) => {
   try {
     // Test reading from sheets
-    const clientes = await leerSheet('Clientes');
-    const productos = await leerSheet('Productos');
+    const clientes = await leerSheet('LISTADO CLIENTES');
+    const productos = await leerSheet('LISTADO PRODUCTO');
     
     res.json({
       connected: true,
