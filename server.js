@@ -73,9 +73,11 @@ async function leerSheet(nombreHoja) {
       // Para LISTADO PRODUCTO buscar "Código" y "Descripción"
       else if (nombreHoja === 'LISTADO PRODUCTO') {
         if (row.some(cell => cell && cell.toString().toLowerCase().includes('código')) &&
-            row.some(cell => cell && cell.toString().toLowerCase().includes('descripción'))) {
+            row.some(cell => cell && cell.toString().toLowerCase().includes('artículo')) &&
+            row.some(cell => cell && cell.toString().toLowerCase().includes('rubro'))) {
           headerRowIndex = i;
           headers = row;
+          console.log(`🔍 Headers encontrados en ${nombreHoja}:`, headers);
           break;
         }
       }
@@ -109,7 +111,7 @@ async function leerSheet(nombreHoja) {
       // Solo agregar si tiene datos mínimos requeridos
       if (nombreHoja === 'LISTADO CLIENTES' && obj['Código'] && obj['Razón Social']) {
         result.push(obj);
-      } else if (nombreHoja === 'LISTADO PRODUCTO' && obj['Código'] && obj['Descripción']) {
+      } else if (nombreHoja === 'LISTADO PRODUCTO' && obj['Código'] && obj['Artículo']) {
         result.push(obj);
       }
     }
@@ -198,7 +200,7 @@ app.get('/api/rubros', async (req, res) => {
     }
     
     // Extraer rubros únicos
-    const rubros = [...new Set(productos.map(p => p.Rubro).filter(r => r))];
+   const rubros = [...new Set(productos.map(p => p.Rubro || p.rubro).filter(r => r))];
     res.json(rubros.sort());
   } catch (error) {
     console.error('Error obteniendo rubros:', error);
@@ -215,7 +217,7 @@ app.get('/api/productos/:rubro', async (req, res) => {
       productos = datosEjemplo.productos;
     }
     
-    const productosFiltrados = productos.filter(p => p.Rubro === rubro);
+    const productosFiltrados = productos.filter(p => (p.Rubro || p.rubro) === rubro);
     res.json(productosFiltrados);
   } catch (error) {
     console.error('Error obteniendo productos por rubro:', error);
@@ -319,12 +321,12 @@ async function manejarMensaje(message) {
     const producto = sesion.productoSeleccionado;
     
     if (cantidad > 0 && cantidad <= 100) {
-      const precio = parseInt(producto.Precio) || 0;
+      const precio = parseInt(producto['Lista 1'] || producto.Lista1 || 0);
       const importe = precio * cantidad;
       
       sesion.pedido.items.push({
         codigo: producto.Código,
-        nombre: producto.Descripción,
+        nombre: producto.Artículo,
         precio: precio,
         cantidad: cantidad,
         importe: importe
@@ -332,7 +334,7 @@ async function manejarMensaje(message) {
       sesion.pedido.total += importe;
       sesion.estado = 'pedido_activo';
       
-      await enviarMensaje(chatId, `✅ Agregado: ${cantidad}x ${producto.Descripción}\nPrecio: $${precio}\nSubtotal: $${importe}\nTotal del pedido: $${sesion.pedido.total}\n\n¿Qué deseas hacer?`, {
+      await enviarMensaje(chatId, `✅ Agregado: ${cantidad}x ${producto.Artículo}\nPrecio: $${precio}\nSubtotal: $${importe}\nTotal del pedido: $${sesion.pedido.total}\n\n¿Qué deseas hacer?`, {
         reply_markup: {
           inline_keyboard: [
             [{ text: '➕ Agregar más productos', callback_data: 'seleccionar_rubro' }],
@@ -424,7 +426,7 @@ async function manejarCallback(callback_query) {
       
       const productosFiltrados = productos.filter(p => p.Rubro === rubro);
       const keyboard = productosFiltrados.slice(0, 15).map(prod => [{ 
-        text: `${prod.Descripción} - $${prod.Precio}`, 
+        text: `${prod.Artículo} - $${prod['Lista 1'] || prod.Lista1 || 'S/P'}`, 
         callback_data: `producto_${prod.Código}` 
       }]);
       
@@ -474,7 +476,8 @@ async function manejarCallback(callback_query) {
         sesion.productoSeleccionado = producto;
         sesionesBot.set(userId, sesion);
         
-        await enviarMensaje(chatId, `📦 ${producto.Descripción}\n💰 Precio: $${producto.Precio}\n\n¿Cuántas unidades quieres? (1-100)`);
+        const precio = producto['Lista 1'] || producto.Lista1 || 'Consultar';
+        await enviarMensaje(chatId, `📦 ${producto.Artículo}\n💰 Precio: $${precio}\n\n¿Cuántas unidades quieres? (1-100)`);
       }
     }
     
@@ -589,7 +592,8 @@ async function manejarCallback(callback_query) {
       
       let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
       productos.slice(0, 20).forEach(prod => {
-        mensaje += `• ${prod.Descripción} - $${prod.Precio}\n`;
+      const precio = prod['Lista 1'] || prod.Lista1 || 'Consultar';
+      mensaje += `• ${prod.Artículo} - $${precio}\n`;
       });
       
       if (productos.length > 20) {
