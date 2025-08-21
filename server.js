@@ -120,14 +120,29 @@ async function leerSheet(nombreHoja) {
     const rows = response.data.values || [];
     if (rows.length === 0) return [];
 
-    const headers = rows[0];
-    return rows.slice(1).map(row => {
+    // Para LISTADO CLIENTES, los datos empiezan en la fila 6 (índice 5)
+    let startRow = 1;
+    let headerRow = 0;
+    
+    if (nombreHoja === 'LISTADO CLIENTES') {
+      // Buscar la fila que contiene "Activo,Código,Razón Social"
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] && rows[i][0] === 'Activo' && rows[i][1] === 'Código') {
+          headerRow = i;
+          startRow = i + 1;
+          break;
+        }
+      }
+    }
+    
+    const headers = rows[headerRow];
+    return rows.slice(startRow).map(row => {
       const obj = {};
       headers.forEach((header, index) => {
         obj[header] = row[index] || '';
       });
       return obj;
-    });
+    }).filter(obj => obj[headers[0]]); // Filtrar filas vacías
   } catch (error) {
     console.error(`❌ Error leyendo ${nombreHoja}:`, error.message);
     throw error;
