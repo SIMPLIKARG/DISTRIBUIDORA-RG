@@ -443,6 +443,21 @@ async function manejarCallback(callback_query) {
   const userId = callback_query.from.id;
   const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
+  // Prevenir procesamiento múltiple del mismo callback
+  const callbackId = callback_query.id;
+  if (sesion.lastCallbackId === callbackId) {
+    console.log('🔄 Callback duplicado ignorado:', callbackId);
+    await answerCallbackQuery(callbackId);
+    return;
+  }
+  sesion.lastCallbackId = callbackId;
+  sesionesBot.set(userId, sesion);
+  
+  console.log('🔘 Procesando callback:', data, 'para usuario:', userId);
+  
+  // Responder inmediatamente al callback para quitar el loading
+  await answerCallbackQuery(callbackId);
+  
   if (data === 'hacer_pedido') {
     // Si ya hay un cliente seleccionado, ir directo a categorías
     if (sesion.clienteSeleccionado) {
@@ -497,6 +512,7 @@ async function manejarCallback(callback_query) {
   
   // Manejar selección de localidad
   if (data.startsWith('localidad_')) {
+    console.log('📍 Procesando selección de localidad...');
     const localidadBase64 = data.split('_')[1];
     const localidad = Buffer.from(localidadBase64, 'base64').toString();
     
@@ -516,29 +532,27 @@ async function manejarCallback(callback_query) {
           ]
         }
       });
-      return;
+    } else {
+      // Guardar localidad seleccionada en sesión
+      sesion.localidadSeleccionada = localidad;
+      sesionesBot.set(userId, sesion);
+      
+      const keyboard = clientesFiltrados.slice(0, 10).map(cliente => [{ 
+        text: `👤 ${cliente.nombre}`, 
+        callback_data: `cliente_${cliente.cliente_id}` 
+      }]);
+      
+      keyboard.push([{ text: '🔙 Cambiar Localidad', callback_data: 'hacer_pedido' }]);
+      keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente_localidad' }]);
+      keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
+      
+      await enviarMensaje(chatId, `👥 Clientes en ${localidad}:`, {
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
     }
-    
-    // Guardar localidad seleccionada en sesión
-    sesion.localidadSeleccionada = localidad;
-    sesionesBot.set(userId, sesion);
-    
-    const keyboard = clientesFiltrados.slice(0, 10).map(cliente => [{ 
-      text: `👤 ${cliente.nombre}`, 
-      callback_data: `cliente_${cliente.cliente_id}` 
-    }]);
-    
-    keyboard.push([{ text: '🔙 Cambiar Localidad', callback_data: 'hacer_pedido' }]);
-    keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente_localidad' }]);
-    keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
-    
-    await enviarMensaje(chatId, `👥 Clientes en ${localidad}:`, {
-      reply_markup: {
-        inline_keyboard: keyboard
-      }
-    });
-    
-    await answerCallbackQuery(callback_query.id);
+    console.log('✅ Localidad procesada exitosamente');
     return;
   }
   
@@ -565,8 +579,7 @@ async function manejarCallback(callback_query) {
         inline_keyboard: keyboard
       }
     });
-    
-    await answerCallbackQuery(callback_query.id);
+    return;
   }
   
   if (data === 'buscar_cliente') {
@@ -611,8 +624,7 @@ async function manejarCallback(callback_query) {
         }
       });
     }
-    
-    await answerCallbackQuery(callback_query.id);
+    return;
   }
   
   if (data === 'seleccionar_cliente') {
