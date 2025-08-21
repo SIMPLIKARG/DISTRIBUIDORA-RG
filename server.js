@@ -53,40 +53,15 @@ async function leerSheet(nombreHoja) {
     const rows = response.data.values || [];
     if (rows.length === 0) return [];
 
-    // Buscar la fila de headers automáticamente
-    let headerRowIndex = -1;
-    let headers = [];
-
-    for (let i = 0; i < Math.min(10, rows.length); i++) {
-      const row = rows[i];
-      if (!row || row.length === 0) continue;
-
-      // Para LISTADO CLIENTES buscar "Activo", "Código" y "Razón Social"
-      if (nombreHoja === 'LISTADO CLIENTES') {
-        if (row.some(cell => cell && cell.toString().toLowerCase().includes('activo')) &&
-            row.some(cell => cell && cell.toString().toLowerCase().includes('código')) &&
-            row.some(cell => cell && cell.toString().toLowerCase().includes('razón social'))) {
-          headerRowIndex = i;
-          headers = row;
-          break;
-        }
-      }
-      // Para LISTADO PRODUCTO buscar "Código", "Artículo" y "Rubro"
-      else if (nombreHoja === 'LISTADO PRODUCTO') {
-        if (row.some(cell => cell && cell.toString().toLowerCase().includes('código')) &&
-            row.some(cell => cell && cell.toString().toLowerCase().includes('artículo')) &&
-            row.some(cell => cell && cell.toString().toLowerCase().includes('rubro'))) {
-          headerRowIndex = i;
-          headers = row;
-          break;
-        }
-      }
-    }
-
-    if (headerRowIndex === -1) {
-      console.log(`⚠️ No se encontraron headers en ${nombreHoja}`);
+    // Los headers están SIEMPRE en la fila 5 (índice 4)
+    const headerRowIndex = 4;
+    
+    if (rows.length <= headerRowIndex) {
+      console.log(`⚠️ ${nombreHoja} no tiene suficientes filas`);
       return [];
     }
+    
+    const headers = rows[headerRowIndex];
 
     console.log(`✅ Headers encontrados en ${nombreHoja} fila ${headerRowIndex + 1}:`, headers);
 
