@@ -278,9 +278,10 @@ app.post('/webhook', async (req, res) => {
 });
 
 // Iniciar servidor
-const server = app.listen(PORT, '0.0.0.0', async () => {
+app.listen(PORT, '0.0.0.0', async () => {
+  const baseUrl = process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(`🌐 Dashboard: ${process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`}`);
+  console.log(`🌐 Dashboard: ${baseUrl}`);
   
   // Verificar Google Sheets al iniciar
   await verificarGoogleSheets();
@@ -1608,9 +1609,10 @@ app.get('/', (req, res) => {
 });
 
 // Iniciar servidor
-const server = app.listen(PORT, '0.0.0.0', async () => {
+app.listen(PORT, '0.0.0.0', async () => {
+  const baseUrl = process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`;
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(`🌐 Dashboard: ${process.env.RAILWAY_STATIC_URL || `http://localhost:${PORT}`}`);
+  console.log(`🌐 Dashboard: ${baseUrl}`);
   
   // Verificar Google Sheets al iniciar
   await verificarGoogleSheets();
