@@ -453,37 +453,72 @@ async function manejarMensaje(message) {
   }
   
   // Manejar cantidad de producto
-  if (sesion.estado === 'esperando_cantidad' && /^\d+$/.test(texto)) {
+  if ((sesion.estado === 'esperando_cantidad' || sesion.estado === 'esperando_nueva_cantidad') && /^\d+$/.test(texto)) {
     const cantidad = parseInt(texto);
     const producto = sesion.productoSeleccionado;
-    
     if (cantidad > 0) {
-      const importe = producto.precio * cantidad;
-      sesion.pedido.items.push({
-        producto_id: producto.producto_id,
-        categoria_id: producto.categoria_id,
-        nombre: producto.producto_nombre,
-        precio: producto.precio,
-        cantidad: cantidad,
-        importe: importe
-      });
-      sesion.pedido.total += importe;
-      sesion.estado = 'inicio';
-      
-      await enviarMensaje(chatId, `✅ Agregado: ${cantidad}x ${producto.producto_nombre}\nSubtotal: $${importe}\nTotal del pedido: $${sesion.pedido.total}\n\n¿Qué deseas hacer?`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '➕ Agregar más productos', callback_data: 'continuar_pedido' }],
-            [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }],
-            [{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]
-          ]
+    if (cantidad > 0) {
+      if (sesion.estado === 'esperando_cantidad') {
+        // Agregar nuevo producto
+        const producto = sesion.productoSeleccionado;
+        const importe = producto.precio * cantidad;
+        sesion.pedido.items.push({
+          producto_id: producto.producto_id,
+          nombre: producto.producto_nombre,
+          precio: producto.precio,
+          cantidad: cantidad,
+          importe: importe
+        });
+        sesion.pedido.total += importe;
+        sesion.estado = 'inicio';
+        
+        await enviarMensaje(chatId, `✅ Agregado: ${cantidad}x ${producto.producto_nombre}\nSubtotal: $${importe}\nTotal del pedido: $${sesion.pedido.total}\n\n¿Qué deseas hacer?`, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '➕ Agregar más productos', callback_data: 'hacer_pedido' }],
+              [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }],
+              [{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]
+            ]
+          }
+        });
+        
+      } else if (sesion.estado === 'esperando_nueva_cantidad') {
+        // Editar cantidad existente
+        const itemIndex = sesion.itemEditandoIndex;
+        const item = sesion.pedido.items[itemIndex];
+        
+        if (item) {
+          // Restar el importe anterior del total
+          sesion.pedido.total -= item.importe;
+          
+          // Actualizar cantidad e importe
+          item.cantidad = cantidad;
+          item.importe = item.precio * cantidad;
+          
+          // Sumar el nuevo importe al total
+          sesion.pedido.total += item.importe;
+          
+          sesion.estado = 'inicio';
+          delete sesion.itemEditandoIndex;
+          
+          await enviarMensaje(chatId, `✅ Cantidad actualizada: ${cantidad}x ${item.nombre}\nNuevo subtotal: $${item.importe}\nTotal del pedido: $${sesion.pedido.total}`);
+          
+          // Mostrar carrito actualizado después de un momento
+          setTimeout(() => {
+            manejarCallback({ 
+              message: { chat: { id: chatId } }, 
+              data: 'ver_carrito',
+              from: { id: userId }
+            });
+          }, 1500);
         }
-      });
+      }
       
       sesionesBot.set(userId, sesion);
     } else {
       await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número mayor a 0:');
     }
+    return;
   }
   
   // Manejar edición de cantidad
@@ -844,6 +879,70 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'ver_carrito') {
+  // Manejar edición de items del carrito
+  if (data.startsWith('editar_item_')) {
+    const itemIndex = parseInt(data.split('_')[2]);
+    
+    if (sesion.pedido.items[itemIndex]) {
+      const item = sesion.pedido.items[itemIndex];
+      
+      await enviarMensaje(chatId, `✏️ Editando: ${item.nombre}\n💰 Precio unitario: $${item.precio}\n📦 Cantidad actual: ${item.cantidad}\n\n¿Qué deseas hacer?`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔢 Cambiar Cantidad', callback_data: `cambiar_cantidad_${itemIndex}` }],
+            [{ text: '🗑️ Eliminar Item', callback_data: `eliminar_item_${itemIndex}` }],
+            [{ text: '🔙 Volver al Carrito', callback_data: 'ver_carrito' }]
+          ]
+        }
+      });
+    }
+    return;
+  }
+  
+  // Manejar cambio de cantidad
+  if (data.startsWith('cambiar_cantidad_')) {
+    const itemIndex = parseInt(data.split('_')[2]);
+    
+    if (sesion.pedido.items[itemIndex]) {
+      const item = sesion.pedido.items[itemIndex];
+      sesion.estado = 'esperando_nueva_cantidad';
+      sesion.itemEditandoIndex = itemIndex;
+      sesionesBot.set(userId, sesion);
+      
+      await enviarMensaje(chatId, `🔢 ${item.nombre}\n📦 Cantidad actual: ${item.cantidad}\n💰 Precio unitario: $${item.precio}\n\nIngresa la nueva cantidad:`);
+    }
+    return;
+  }
+  
+  // Manejar eliminación de item
+  if (data.startsWith('eliminar_item_')) {
+    const itemIndex = parseInt(data.split('_')[2]);
+    
+    if (sesion.pedido.items[itemIndex]) {
+      const item = sesion.pedido.items[itemIndex];
+      
+      // Restar del total
+      sesion.pedido.total -= item.importe;
+      
+      // Eliminar item del array
+      sesion.pedido.items.splice(itemIndex, 1);
+      
+      sesionesBot.set(userId, sesion);
+      
+      await enviarMensaje(chatId, `🗑️ ${item.nombre} eliminado del carrito\n💰 Total actualizado: $${sesion.pedido.total}`);
+      
+      // Mostrar carrito actualizado
+      setTimeout(() => {
+        manejarCallback({ 
+          message: { chat: { id: chatId } }, 
+          data: 'ver_carrito',
+          from: { id: userId }
+        });
+      }, 1000);
+    }
+    return;
+  }
+  
     if (sesion.pedido.items.length === 0) {
       await enviarMensaje(chatId, '🛒 Tu carrito está vacío\n\n¿Deseas agregar productos?', {
         reply_markup: {
