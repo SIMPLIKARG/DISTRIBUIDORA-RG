@@ -39,6 +39,8 @@ if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY &
 
 // Función para leer de Google Sheets con detección automática de headers
 async function leerSheet(nombreHoja) {
+  console.log(`🔍 DEBUG - Intentando leer hoja: "${nombreHoja}"`);
+  
   if (!sheets || !SPREADSHEET_ID) {
     console.log(`⚠️ Google Sheets no disponible, usando datos de ejemplo para ${nombreHoja}`);
     return [];
@@ -51,6 +53,8 @@ async function leerSheet(nombreHoja) {
     });
 
     const rows = response.data.values || [];
+    console.log(`📊 DEBUG - ${nombreHoja}: ${rows.length} filas obtenidas de Google Sheets`);
+    
     if (rows.length === 0) return [];
 
     // Los headers están SIEMPRE en la fila 5 (índice 4)
@@ -62,11 +66,13 @@ async function leerSheet(nombreHoja) {
     }
     
     const headers = rows[headerRowIndex];
+    console.log(`🔧 DEBUG - Headers en ${nombreHoja}:`, headers);
 
     console.log(`✅ Headers encontrados en ${nombreHoja} fila ${headerRowIndex + 1}:`, headers);
 
     // Procesar datos desde la siguiente fila
     const dataRows = rows.slice(headerRowIndex + 1);
+    console.log(`📋 DEBUG - ${nombreHoja}: ${dataRows.length} filas de datos para procesar`);
     const result = [];
 
     for (const row of dataRows) {
@@ -91,11 +97,16 @@ async function leerSheet(nombreHoja) {
       }
     }
 
+    console.log(`✅ DEBUG - ${nombreHoja}: ${result.length} registros válidos procesados`);
+    if (result.length > 0) {
+      console.log(`📝 DEBUG - Primer registro de ${nombreHoja}:`, result[0]);
+    }
     console.log(`✅ ${nombreHoja}: ${result.length} registros procesados`);
     return result;
 
   } catch (error) {
     console.error(`❌ Error leyendo ${nombreHoja}:`, error.message);
+    console.log(`🔄 DEBUG - Usando datos de ejemplo para ${nombreHoja}`);
     return [];
   }
 }
@@ -308,19 +319,24 @@ let contadorPedidos = 1;
 // Webhook de Telegram
 app.post('/webhook', async (req, res) => {
   try {
+    console.log('📨 DEBUG - Webhook recibido:', JSON.stringify(req.body, null, 2));
+    
     const { message, callback_query } = req.body;
     
     if (message) {
+      console.log(`💬 DEBUG - Mensaje recibido de ${message.from.id}: "${message.text}"`);
       await manejarMensaje(message);
     }
     
     if (callback_query) {
+      console.log(`🔘 DEBUG - Callback recibido de ${callback_query.from.id}: "${callback_query.data}"`);
       await manejarCallback(callback_query);
     }
     
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error en webhook:', error);
+    console.log('🚨 DEBUG - Error completo:', error.stack);
     res.status(500).send('Error');
   }
 });
@@ -330,6 +346,9 @@ async function manejarMensaje(message) {
   const chatId = message.chat.id;
   const texto = message.text;
   const userId = message.from.id;
+  
+  console.log(`🎯 DEBUG - Procesando mensaje: chatId=${chatId}, userId=${userId}, texto="${texto}"`);
+  
   const sesion = sesionesBot.get(userId) || { 
     estado: 'inicio', 
     pedido: { items: [], total: 0 },
@@ -347,6 +366,7 @@ async function manejarMensaje(message) {
       productoSeleccionado: null
     });
     
+    console.log('🚀 DEBUG - Enviando mensaje de bienvenida');
     await enviarMensaje(chatId, '🛒 ¡Bienvenido a RG Distribuciones!\n\nSelecciona una opción:', {
       reply_markup: {
         inline_keyboard: [
@@ -400,6 +420,9 @@ async function manejarCallback(callback_query) {
   const chatId = callback_query.message.chat.id;
   const data = callback_query.data;
   const userId = callback_query.from.id;
+  
+  console.log(`🎯 DEBUG - Procesando callback: chatId=${chatId}, userId=${userId}, data="${data}"`);
+  
   const sesion = sesionesBot.get(userId) || { 
     estado: 'inicio', 
     pedido: { items: [], total: 0 },
@@ -410,9 +433,13 @@ async function manejarCallback(callback_query) {
   
   try {
     if (data === 'hacer_pedido') {
+      console.log('🛍️ DEBUG - Procesando "hacer_pedido"');
       // Mostrar lista de clientes
       let clientes = await leerSheet('LISTADO CLIENTES');
+      console.log(`👥 DEBUG - Clientes obtenidos: ${clientes.length}`);
+      
       if (clientes.length === 0) {
+        console.log('🔄 DEBUG - Usando datos de ejemplo para clientes');
         clientes = datosEjemplo.clientes;
       }
       
@@ -421,6 +448,7 @@ async function manejarCallback(callback_query) {
         callback_data: `cliente_${cliente.Código}` 
       }]);
       
+      console.log(`⌨️ DEBUG - Teclado generado con ${keyboard.length} opciones`);
       await enviarMensaje(chatId, '👤 Selecciona un cliente:', {
         reply_markup: { inline_keyboard: keyboard }
       });
@@ -428,12 +456,16 @@ async function manejarCallback(callback_query) {
     
     if (data.startsWith('cliente_')) {
       const clienteCodigo = data.split('_')[1];
+      console.log(`👤 DEBUG - Cliente seleccionado: ${clienteCodigo}`);
+      
       let clientes = await leerSheet('LISTADO CLIENTES');
       if (clientes.length === 0) {
         clientes = datosEjemplo.clientes;
       }
       
       const cliente = clientes.find(c => c.Código == clienteCodigo);
+      console.log(`🔍 DEBUG - Cliente encontrado:`, cliente);
+      
       if (cliente) {
         sesion.clienteSeleccionado = cliente;
         sesion.estado = 'cliente_seleccionado';
@@ -441,16 +473,21 @@ async function manejarCallback(callback_query) {
         
         // Mostrar rubros
         let productos = await leerSheet('LISTADO PRODUCTO');
+        console.log(`📦 DEBUG - Productos obtenidos: ${productos.length}`);
+        
         if (productos.length === 0) {
           productos = datosEjemplo.productos;
         }
         
         const rubros = [...new Set(productos.map(p => p.Rubro).filter(r => r))];
+        console.log(`📂 DEBUG - Rubros encontrados:`, rubros);
+        
         const keyboard = rubros.sort().map(rubro => [{ 
           text: rubro, 
           callback_data: `rubro_${rubro}` 
         }]);
         
+        console.log(`⌨️ DEBUG - Teclado de rubros con ${keyboard.length} opciones`);
         await enviarMensaje(chatId, `✅ Cliente: ${cliente['Razón Social']}\n\n📂 Selecciona una categoría:`, {
           reply_markup: { inline_keyboard: keyboard }
         });
@@ -658,6 +695,7 @@ async function manejarCallback(callback_query) {
         `4. Ingresa la cantidad\n` +
         `5. Finaliza el pedido`;
       
+      console.log('❓ DEBUG - Enviando mensaje de ayuda:', mensaje);
       await enviarMensaje(chatId, mensaje);
     }
     
@@ -683,12 +721,18 @@ async function manejarCallback(callback_query) {
     
   } catch (error) {
     console.error('Error en callback:', error);
+    console.log('🚨 DEBUG - Error completo en callback:', error.stack);
     await enviarMensaje(chatId, '❌ Error procesando solicitud. Intenta nuevamente.');
   }
 }
 
 // Enviar mensaje a Telegram
 async function enviarMensaje(chatId, texto, opciones = {}) {
+  console.log(`📤 DEBUG - Intentando enviar mensaje:`);
+  console.log(`   chatId: ${chatId}`);
+  console.log(`   texto: "${texto}"`);
+  console.log(`   opciones:`, JSON.stringify(opciones, null, 2));
+  
   if (!TELEGRAM_BOT_TOKEN) {
     console.log(`[SIMULADO] Mensaje a ${chatId}: ${texto}`);
     return;
@@ -696,6 +740,8 @@ async function enviarMensaje(chatId, texto, opciones = {}) {
   
   try {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    console.log(`🌐 DEBUG - URL de Telegram: ${url}`);
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -706,11 +752,18 @@ async function enviarMensaje(chatId, texto, opciones = {}) {
       })
     });
     
+    console.log(`📡 DEBUG - Respuesta de Telegram: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
-      console.error('Error enviando mensaje:', await response.text());
+      const errorText = await response.text();
+      console.error('❌ DEBUG - Error enviando mensaje:', errorText);
+    } else {
+      const responseData = await response.json();
+      console.log('✅ DEBUG - Mensaje enviado exitosamente:', responseData.ok);
     }
   } catch (error) {
     console.error('Error en enviarMensaje:', error);
+    console.log('🚨 DEBUG - Error completo en enviarMensaje:', error.stack);
   }
 }
 
@@ -929,6 +982,11 @@ app.get('/', (req, res) => {
 app.listen(PORT, async () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`🌐 Dashboard: http://localhost:${PORT}`);
+  
+  // Debug: Verificar configuración de Telegram
+  console.log('🔧 DEBUG - Configuración de Telegram:');
+  console.log(`   TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN ? 'CONFIGURADO' : 'NO CONFIGURADO'}`);
+  console.log(`   WEBHOOK_URL: ${WEBHOOK_URL || 'NO CONFIGURADO'}`);
   
   // Configurar webhook después de un delay
   setTimeout(configurarWebhook, 5000);
