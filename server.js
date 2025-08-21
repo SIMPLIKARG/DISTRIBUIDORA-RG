@@ -457,7 +457,7 @@ async function manejarMensaje(message) {
     const cantidad = parseInt(texto);
     const producto = sesion.productoSeleccionado;
     
-    if (cantidad > 0 && cantidad <= 50) {
+    if (cantidad > 0) {
       const importe = producto.precio * cantidad;
       sesion.pedido.items.push({
         producto_id: producto.producto_id,
@@ -482,7 +482,44 @@ async function manejarMensaje(message) {
       
       sesionesBot.set(userId, sesion);
     } else {
-      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número entre 1 y 50:');
+      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número mayor a 0:');
+    }
+  }
+  
+  // Manejar edición de cantidad
+  if (sesion.estado === 'editando_cantidad' && /^\d+$/.test(texto)) {
+    const nuevaCantidad = parseInt(texto);
+    const itemIndex = sesion.itemEditando;
+    const item = sesion.pedido.items[itemIndex];
+    
+    if (nuevaCantidad > 0 && item) {
+      // Restar el importe anterior del total
+      sesion.pedido.total -= item.importe;
+      
+      // Actualizar cantidad e importe
+      item.cantidad = nuevaCantidad;
+      item.importe = item.precio * nuevaCantidad;
+      
+      // Sumar el nuevo importe al total
+      sesion.pedido.total += item.importe;
+      
+      // Limpiar estado de edición
+      sesion.estado = 'inicio';
+      delete sesion.itemEditando;
+      
+      sesionesBot.set(userId, sesion);
+      
+      await enviarMensaje(chatId, `✅ Cantidad actualizada:\n\n📦 ${item.nombre}\n🔢 Nueva cantidad: ${item.cantidad}\n💵 Nuevo subtotal: $${item.importe}\n💰 Total del pedido: $${sesion.pedido.total}`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛒 Ver Carrito', callback_data: 'ver_carrito' }],
+            [{ text: '➕ Agregar más productos', callback_data: 'hacer_pedido' }],
+            [{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]
+          ]
+        }
+      });
+    } else {
+      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número mayor a 0:');
     }
   }
 }
@@ -802,7 +839,7 @@ async function manejarCallback(callback_query) {
       sesion.productoSeleccionado = producto;
       sesionesBot.set(userId, sesion);
       
-      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres? (1-50)`);
+      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres?`);
     }
   }
   
@@ -818,17 +855,25 @@ async function manejarCallback(callback_query) {
     } else {
       let mensaje = '🛒 TU CARRITO:\n\n';
       sesion.pedido.items.forEach((item, index) => {
-        mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n\n`;
+        mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n`;
       });
       mensaje += `💰 TOTAL: $${sesion.pedido.total}`;
       
+      // Crear botones para editar cada item
+      const editButtons = sesion.pedido.items.map((item, index) => [{
+        text: `✏️ Editar: ${item.nombre.substring(0, 25)}${item.nombre.length > 25 ? '...' : ''}`,
+        callback_data: `editar_item_${index}`
+      }]);
+      
+      const actionButtons = [
+        [{ text: '➕ Agregar más', callback_data: 'hacer_pedido' }],
+        [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }],
+        [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }]
+      ];
+      
       await enviarMensaje(chatId, mensaje, {
         reply_markup: {
-          inline_keyboard: [
-            [{ text: '➕ Agregar más', callback_data: 'continuar_pedido' }],
-            [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }],
-            [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }],
-            [{ text: '🔍 Buscar Producto', callback_data: 'buscar_producto' }]
+          inline_keyboard: [...editButtons, ...actionButtons]
           ]
         }
       });
