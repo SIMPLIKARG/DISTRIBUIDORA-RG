@@ -461,16 +461,85 @@ async function manejarCallback(callback_query) {
         }
       });
     } else {
-      await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
+      // Mostrar localidades primero
+      const clientes = await leerSheet('Clientes');
+      console.log('📊 Clientes obtenidos:', clientes.length);
+      
+      // Obtener localidades únicas
+      const localidades = [...new Set(clientes.map(c => c.localidad).filter(l => l && l.trim()))];
+      console.log('🏙️ Localidades encontradas:', localidades);
+      
+      if (localidades.length === 0) {
+        await enviarMensaje(chatId, '⚠️ No hay localidades configuradas. Mostrando todos los clientes:', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
+              [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
+              [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+            ]
+          }
+        });
+        return;
+      }
+      
+      const keyboard = localidades.sort().map(localidad => [{ 
+        text: `📍 ${localidad}`, 
+        callback_data: `localidad_${Buffer.from(localidad).toString('base64')}` 
+      }]);
+      
+      await enviarMensaje(chatId, '📍 Primero, selecciona la localidad:', {
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    }
+  }
+  
+  // Manejar selección de localidad
+  if (data.startsWith('localidad_')) {
+    const localidadBase64 = data.split('_')[1];
+    const localidad = Buffer.from(localidadBase64, 'base64').toString();
+    
+    console.log(`📍 Localidad seleccionada: ${localidad}`);
+    
+    const clientes = await leerSheet('Clientes');
+    const clientesFiltrados = clientes.filter(c => c.localidad === localidad);
+    
+    console.log(`👥 Clientes en ${localidad}:`, clientesFiltrados.length);
+    
+    if (clientesFiltrados.length === 0) {
+      await enviarMensaje(chatId, `❌ No hay clientes en ${localidad}`, {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
-            [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
+            [{ text: '🔙 Volver a Localidades', callback_data: 'hacer_pedido' }],
             [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
           ]
         }
       });
+      return;
     }
+    
+    // Guardar localidad seleccionada en sesión
+    sesion.localidadSeleccionada = localidad;
+    sesionesBot.set(userId, sesion);
+    
+    const keyboard = clientesFiltrados.slice(0, 10).map(cliente => [{ 
+      text: `👤 ${cliente.nombre}`, 
+      callback_data: `cliente_${cliente.cliente_id}` 
+    }]);
+    
+    keyboard.push([{ text: '🔙 Cambiar Localidad', callback_data: 'hacer_pedido' }]);
+    keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente_localidad' }]);
+    keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
+    
+    await enviarMensaje(chatId, `👥 Clientes en ${localidad}:`, {
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    
+    await answerCallbackQuery(callback_query.id);
+    return;
   }
   
   if (data === 'nuevo_cliente') {
@@ -482,6 +551,7 @@ async function manejarCallback(callback_query) {
   
   if (data === 'lista_clientes') {
     const clientes = await leerSheet('Clientes');
+    console.log('📋 Mostrando lista de clientes:', clientes.length);
     const keyboard = clientes.slice(0, 10).map(cliente => [{ 
       text: `👤 ${cliente.nombre}`, 
       callback_data: `cliente_${cliente.cliente_id}` 
@@ -495,6 +565,8 @@ async function manejarCallback(callback_query) {
         inline_keyboard: keyboard
       }
     });
+    
+    await answerCallbackQuery(callback_query.id);
   }
   
   if (data === 'buscar_cliente') {
@@ -507,7 +579,9 @@ async function manejarCallback(callback_query) {
   if (data.startsWith('cliente_')) {
     const clienteId = data.split('_')[1];
     const clientes = await leerSheet('Clientes');
+    console.log(`🔍 Buscando cliente ID: ${clienteId}`);
     const cliente = clientes.find(c => c.cliente_id == clienteId);
+    console.log('👤 Cliente encontrado:', cliente);
     
     if (cliente) {
       sesion.clienteSeleccionado = cliente;
@@ -528,7 +602,17 @@ async function manejarCallback(callback_query) {
           ]
         }
       });
+    } else {
+      await enviarMensaje(chatId, '❌ Cliente no encontrado', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Volver', callback_data: 'hacer_pedido' }]
+          ]
+        }
+      });
     }
+    
+    await answerCallbackQuery(callback_query.id);
   }
   
   if (data === 'seleccionar_cliente') {
