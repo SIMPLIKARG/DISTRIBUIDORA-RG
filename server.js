@@ -1150,7 +1150,6 @@ app.get('/', (req, res) => {
 </html>`;
   
   res.send(html);
-  res.send(html);
 });
 
 // Iniciar servidor
