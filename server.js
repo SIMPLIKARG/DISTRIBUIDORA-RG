@@ -301,12 +301,24 @@ async function manejarMensaje(message) {
   // Manejar selección de cliente por nombre
   if (sesion.estado === 'esperando_cliente') {
     const clientes = await leerSheet('Clientes');
-    const clientesEncontrados = clientes.filter(c => 
-      c.nombre.toLowerCase().includes(texto.toLowerCase())
+    
+    // Si hay localidad seleccionada, filtrar solo en esa localidad
+    let clientesParaBuscar = clientes;
+    if (sesion.localidadSeleccionada) {
+      clientesParaBuscar = clientes.filter(c => c.localidad === sesion.localidadSeleccionada);
+      console.log(`🔍 Buscando en localidad: ${sesion.localidadSeleccionada}`);
+      console.log(`📊 Clientes en localidad: ${clientesParaBuscar.length}`);
+    }
+    
+    const clientesEncontrados = clientesParaBuscar.filter(c => 
+      c.nombre && c.nombre.toLowerCase().includes(texto.toLowerCase())
     );
     
+    console.log(`🔍 Búsqueda "${texto}": ${clientesEncontrados.length} resultados`);
+    
     if (clientesEncontrados.length === 0) {
-      await enviarMensaje(chatId, `❌ No encontré ningún cliente con "${texto}"\n\nIntenta con otro nombre o parte del nombre:`);
+      const localidadTexto = sesion.localidadSeleccionada ? ` en ${sesion.localidadSeleccionada}` : '';
+      await enviarMensaje(chatId, `❌ No encontré ningún cliente con "${texto}"${localidadTexto}\n\nIntenta con otro nombre o parte del nombre:`);
     } else if (clientesEncontrados.length === 1) {
       // Solo un cliente encontrado, seleccionarlo automáticamente
       const clienteEncontrado = clientesEncontrados[0];
@@ -330,7 +342,7 @@ async function manejarMensaje(message) {
       });
     } else {
       // Múltiples clientes encontrados, mostrar opciones
-      const keyboard = clientesEncontrados.slice(0, 10).map(cliente => [{ 
+      const keyboard = clientesEncontrados.map(cliente => [{ 
         text: `👤 ${cliente.nombre}`, 
         callback_data: `cliente_${cliente.cliente_id}` 
       }]);
@@ -338,7 +350,8 @@ async function manejarMensaje(message) {
       keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_cliente' }]);
       keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
       
-      await enviarMensaje(chatId, `🔍 Encontré ${clientesEncontrados.length} clientes con "${texto}":\n\nSelecciona el correcto:`, {
+      const localidadTexto = sesion.localidadSeleccionada ? ` en ${sesion.localidadSeleccionada}` : '';
+      await enviarMensaje(chatId, `🔍 Encontré ${clientesEncontrados.length} clientes con "${texto}"${localidadTexto}:\n\nSelecciona el correcto:`, {
         reply_markup: {
           inline_keyboard: keyboard
         }
@@ -522,6 +535,7 @@ async function manejarCallback(callback_query) {
     const clientesFiltrados = clientes.filter(c => c.localidad === localidad);
     
     console.log(`👥 Clientes en ${localidad}:`, clientesFiltrados.length);
+    console.log('🔍 Clientes encontrados:', clientesFiltrados.map(c => `${c.cliente_id}: ${c.nombre}`));
     
     if (clientesFiltrados.length === 0) {
       await enviarMensaje(chatId, `❌ No hay clientes en ${localidad}`, {
@@ -537,7 +551,8 @@ async function manejarCallback(callback_query) {
       sesion.localidadSeleccionada = localidad;
       sesionesBot.set(userId, sesion);
       
-      const keyboard = clientesFiltrados.slice(0, 10).map(cliente => [{ 
+      // Mostrar TODOS los clientes de la localidad (sin límite)
+      const keyboard = clientesFiltrados.map(cliente => [{ 
         text: `👤 ${cliente.nombre}`, 
         callback_data: `cliente_${cliente.cliente_id}` 
       }]);
@@ -546,7 +561,7 @@ async function manejarCallback(callback_query) {
       keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente_localidad' }]);
       keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
       
-      await enviarMensaje(chatId, `👥 Clientes en ${localidad}:`, {
+      await enviarMensaje(chatId, `👥 Clientes en ${localidad} (${clientesFiltrados.length} encontrados):`, {
         reply_markup: {
           inline_keyboard: keyboard
         }
@@ -566,7 +581,14 @@ async function manejarCallback(callback_query) {
   if (data === 'lista_clientes') {
     const clientes = await leerSheet('Clientes');
     console.log('📋 Mostrando lista de clientes:', clientes.length);
-    const keyboard = clientes.slice(0, 10).map(cliente => [{ 
+    
+    // Si hay localidad seleccionada, filtrar
+    let clientesParaMostrar = clientes;
+    if (sesion.localidadSeleccionada) {
+      clientesParaMostrar = clientes.filter(c => c.localidad === sesion.localidadSeleccionada);
+    }
+    
+    const keyboard = clientesParaMostrar.map(cliente => [{ 
       text: `👤 ${cliente.nombre}`, 
       callback_data: `cliente_${cliente.cliente_id}` 
     }]);
@@ -574,7 +596,8 @@ async function manejarCallback(callback_query) {
     keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
     keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
     
-    await enviarMensaje(chatId, '👥 Selecciona un cliente:', {
+    const localidadTexto = sesion.localidadSeleccionada ? ` en ${sesion.localidadSeleccionada}` : '';
+    await enviarMensaje(chatId, `👥 Selecciona un cliente${localidadTexto} (${clientesParaMostrar.length} disponibles):`, {
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -586,7 +609,15 @@ async function manejarCallback(callback_query) {
     sesion.estado = 'esperando_cliente';
     sesionesBot.set(userId, sesion);
     
-    await enviarMensaje(chatId, '✍️ Escribe el nombre del cliente (o parte del nombre):');
+    const localidadTexto = sesion.localidadSeleccionada ? ` en ${sesion.localidadSeleccionada}` : '';
+    await enviarMensaje(chatId, `✍️ Escribe el nombre del cliente (o parte del nombre)${localidadTexto}:`);
+  }
+  
+  if (data === 'buscar_cliente_localidad') {
+    sesion.estado = 'esperando_cliente';
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, `✍️ Escribe el nombre del cliente en ${sesion.localidadSeleccionada}:`);
   }
   
   if (data.startsWith('cliente_')) {
