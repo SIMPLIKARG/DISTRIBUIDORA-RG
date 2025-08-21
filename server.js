@@ -249,10 +249,29 @@ async function manejarMensaje(message) {
         inline_keyboard: [
           [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
           [{ text: '📋 Ver Productos', callback_data: 'ver_productos' }],
+          [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }],
           [{ text: '❓ Ayuda', callback_data: 'ayuda' }]
         ]
       }
     });
+    return;
+  }
+  
+  // Comando para cancelar
+  if (texto === '/cancelar') {
+    sesion.estado = 'inicio';
+    sesion.productoSeleccionado = null;
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, '❌ Operación cancelada\n\n¿Qué deseas hacer?', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]
+        ]
+      }
+    });
+    return;
   }
   
   // Manejar cantidad de producto
@@ -271,6 +290,7 @@ async function manejarMensaje(message) {
       });
       sesion.pedido.total += importe;
       sesion.estado = 'inicio';
+      sesion.productoSeleccionado = null;
       
       await enviarMensaje(chatId, `✅ Agregado: ${cantidad}x ${producto.producto_nombre}\nSubtotal: $${importe}\nTotal del pedido: $${sesion.pedido.total}\n\n¿Qué deseas hacer?`, {
         reply_markup: {
@@ -284,9 +304,37 @@ async function manejarMensaje(message) {
       
       sesionesBot.set(userId, sesion);
     } else {
-      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número entre 1 y 50:');
+      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número entre 1 y 50:\n\n_O usa /cancelar para volver_', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancelar', callback_data: 'cancelar_producto' }]
+          ]
+        }
+      });
     }
+    return;
   }
+  
+  // Si está esperando cantidad pero no es un número válido
+  if (sesion.estado === 'esperando_cantidad') {
+    await enviarMensaje(chatId, '❌ Por favor ingresa solo números.\n\nCantidad para el producto (1-50):\n\n_O usa /cancelar para volver_', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '❌ Cancelar', callback_data: 'cancelar_producto' }]
+        ]
+      }
+    });
+    return;
+  }
+  
+  // Mensaje por defecto para comandos no reconocidos
+  await enviarMensaje(chatId, '❓ No entiendo ese comando.\n\nUsa /start para ver el menú principal.', {
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '🏠 Menú principal', callback_data: 'menu_principal' }]
+      ]
+    }
+  });
 }
 
 // Manejar callbacks
@@ -296,12 +344,34 @@ async function manejarCallback(callback_query) {
   const userId = callback_query.from.id;
   const sesion = sesionesBot.get(userId) || { estado: 'inicio', pedido: { items: [], total: 0 } };
   
+  // Responder al callback para evitar el spinner
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callback_query_id: callback_query.id
+      })
+    });
+  } catch (error) {
+    console.log('Error respondiendo callback:', error.message);
+  }
+  
   if (data === 'hacer_pedido') {
     const categorias = await leerSheet('Categorias');
-    const keyboard = categorias.map(cat => [{ 
-      text: cat.categoria_nombre, 
-      callback_data: `categoria_${cat.categoria_id}` 
+    
+    if (categorias.length === 0) {
+      await enviarMensaje(chatId, '❌ No hay categorías disponibles en este momento.');
+      return;
+    }
+    
+    const keyboard = categorias.map(cat => [{
+      text: `📂 ${cat.categoria_nombre}`,
+      callback_data: `categoria_${cat.categoria_id}`
     }]);
+    
+    // Agregar botón para volver
+    keyboard.push([{ text: '🔙 Volver al menú', callback_data: 'menu_principal' }]);
     
     await enviarMensaje(chatId, '📂 Selecciona una categoría:', {
       reply_markup: { inline_keyboard: keyboard }
@@ -313,10 +383,27 @@ async function manejarCallback(callback_query) {
     const productos = await leerSheet('Productos');
     const productosFiltrados = productos.filter(p => p.categoria_id == categoriaId && p.activo === 'SI');
     
-    const keyboard = productosFiltrados.map(prod => [{ 
-      text: `${prod.producto_nombre} - $${prod.precio}`, 
-      callback_data: `producto_${prod.producto_id}` 
+    if (productosFiltrados.length === 0) {
+      await enviarMensaje(chatId, '❌ No hay productos disponibles en esta categoría.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Volver a categorías', callback_data: 'hacer_pedido' }]
+          ]
+        }
+      });
+      return;
+    }
+    
+    const keyboard = productosFiltrados.map(prod => [{
+      text: `🛍️ ${prod.producto_nombre} - $${prod.precio}`,
+      callback_data: `producto_${prod.producto_id}`
     }]);
+    
+    // Agregar botones de navegación
+    keyboard.push([
+      { text: '🔙 Volver a categorías', callback_data: 'hacer_pedido' },
+      { text: '🏠 Menú principal', callback_data: 'menu_principal' }
+    ]);
     
     await enviarMensaje(chatId, '🛍️ Selecciona un producto:', {
       reply_markup: { inline_keyboard: keyboard }
@@ -333,8 +420,53 @@ async function manejarCallback(callback_query) {
       sesion.productoSeleccionado = producto;
       sesionesBot.set(userId, sesion);
       
-      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres? (1-50)`);
+      await enviarMensaje(chatId, `📦 **${producto.producto_nombre}**\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres? (1-50)\n\n_Escribe un número o usa /cancelar para volver_`, {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '❌ Cancelar', callback_data: 'cancelar_producto' }]
+          ]
+        }
+      });
+    } else {
+      await enviarMensaje(chatId, '❌ Producto no encontrado.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🔙 Volver a productos', callback_data: 'hacer_pedido' }]
+          ]
+        }
+      });
     }
+  }
+  
+  if (data === 'cancelar_producto') {
+    sesion.estado = 'inicio';
+    sesion.productoSeleccionado = null;
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, '❌ Selección cancelada\n\n¿Qué deseas hacer?', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]
+        ]
+      }
+    });
+  }
+  
+  if (data === 'menu_principal') {
+    sesion.estado = 'inicio';
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, '🏠 Menú Principal\n\nSelecciona una opción:', {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '📋 Ver Productos', callback_data: 'ver_productos' }],
+          [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }],
+          [{ text: '❓ Ayuda', callback_data: 'ayuda' }]
+        ]
+      }
+    });
   }
   
   if (data === 'ver_carrito') {
@@ -342,7 +474,8 @@ async function manejarCallback(callback_query) {
       await enviarMensaje(chatId, '🛒 Tu carrito está vacío\n\n¿Deseas agregar productos?', {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
+            [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+            [{ text: '🏠 Menú principal', callback_data: 'menu_principal' }]
           ]
         }
       });
@@ -373,7 +506,8 @@ async function manejarCallback(callback_query) {
     await enviarMensaje(chatId, '🗑️ Carrito vaciado\n\n¿Deseas hacer un nuevo pedido?', {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '🏠 Menú principal', callback_data: 'menu_principal' }]
         ]
       }
     });
@@ -436,12 +570,81 @@ async function manejarCallback(callback_query) {
     const productos = await leerSheet('Productos');
     const productosActivos = productos.filter(p => p.activo === 'SI');
     
-    let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
-    productosActivos.forEach(prod => {
-      mensaje += `• ${prod.producto_nombre} - $${prod.precio}\n`;
+    if (productosActivos.length === 0) {
+      await enviarMensaje(chatId, '❌ No hay productos disponibles en este momento.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🏠 Menú principal', callback_data: 'menu_principal' }]
+          ]
+        }
+      });
+      return;
+    }
+    
+    // Agrupar productos por categoría
+    const categorias = await leerSheet('Categorias');
+    const categoriaMap = {};
+    categorias.forEach(cat => {
+      categoriaMap[cat.categoria_id] = cat.categoria_nombre;
     });
     
-    await enviarMensaje(chatId, mensaje);
+    let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
+    let categoriaActual = '';
+    
+    productosActivos.forEach(prod => {
+      const nombreCategoria = categoriaMap[prod.categoria_id] || 'Sin categoría';
+      if (nombreCategoria !== categoriaActual) {
+        mensaje += `\n📂 **${nombreCategoria}**\n`;
+        categoriaActual = nombreCategoria;
+      }
+      mensaje += `   • ${prod.producto_nombre} - $${prod.precio}\n`;
+    });
+    
+    await enviarMensaje(chatId, mensaje, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '🏠 Menú principal', callback_data: 'menu_principal' }]
+        ]
+      }
+    });
+  }
+  
+  if (data === 'ayuda') {
+    const mensajeAyuda = `❓ **AYUDA - CÓMO USAR EL BOT**
+
+🛍️ **Hacer un pedido:**
+1. Presiona "Hacer Pedido"
+2. Selecciona una categoría
+3. Elige un producto
+4. Escribe la cantidad deseada
+5. Repite para más productos
+6. Finaliza tu pedido
+
+🛒 **Ver carrito:**
+- Revisa los productos agregados
+- Ve el total de tu pedido
+- Vacía el carrito si es necesario
+
+📋 **Ver productos:**
+- Lista completa de productos disponibles
+- Organizados por categoría
+- Con precios actualizados
+
+⚡ **Comandos útiles:**
+- /start - Menú principal
+- /cancelar - Cancelar operación actual
+
+¿Necesitas más ayuda? Contacta al administrador.`;
+
+    await enviarMensaje(chatId, mensajeAyuda, {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }],
+          [{ text: '🏠 Menú principal', callback_data: 'menu_principal' }]
+        ]
+      }
+    });
   }
 }
 
