@@ -167,6 +167,16 @@ app.get('/api/productos', async (req, res) => {
   }
 });
 
+app.get('/api/pedidos', async (req, res) => {
+  try {
+    // Por ahora solo devolvemos pedidos en memoria
+    res.json(pedidosEnMemoria);
+  } catch (error) {
+    console.error('Error obteniendo pedidos:', error);
+    res.json([]);
+  }
+});
+
 app.get('/api/rubros', async (req, res) => {
   try {
     let productos = await leerSheet('LISTADO PRODUCTO');
@@ -175,7 +185,7 @@ app.get('/api/rubros', async (req, res) => {
     }
     
     // Extraer rubros únicos
-    const rubros = [...new Set(productos.map(p => p.Rubro).filter(r => r))];
+    const rubros = [...new Set(productos.map(p => p.Rubro || p.rubro).filter(r => r))];
     res.json(rubros.sort());
   } catch (error) {
     console.error('Error obteniendo rubros:', error);
@@ -192,7 +202,7 @@ app.get('/api/productos/:rubro', async (req, res) => {
       productos = datosEjemplo.productos;
     }
     
-    const productosFiltrados = productos.filter(p => p.Rubro === rubro);
+    const productosFiltrados = productos.filter(p => (p.Rubro || p.rubro) === rubro);
     res.json(productosFiltrados);
   } catch (error) {
     console.error('Error obteniendo productos por rubro:', error);
@@ -224,6 +234,64 @@ app.get('/api/stats', async (req, res) => {
       totalProductos: datosEjemplo.productos.length,
       totalPedidos: 0,
       ventasTotal: 0
+    });
+  }
+});
+
+// Ruta de información de la API
+app.get('/api/info', (req, res) => {
+  res.json({
+    name: 'Sistema Distribuidora Bot',
+    version: '1.0.0',
+    status: 'active',
+    endpoints: {
+      clientes: '/api/clientes',
+      productos: '/api/productos',
+      rubros: '/api/rubros',
+      pedidos: '/api/pedidos',
+      stats: '/api/stats',
+      health: '/health'
+    },
+    integrations: {
+      googleSheets: !!sheets,
+      telegram: !!TELEGRAM_BOT_TOKEN
+    }
+  });
+});
+
+// Test endpoints
+app.get('/api/test/clientes', async (req, res) => {
+  try {
+    const clientes = await leerSheet('LISTADO CLIENTES');
+    res.json({
+      success: true,
+      count: clientes.length,
+      sample: clientes.slice(0, 3),
+      message: 'Clientes cargados correctamente'
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      fallback: datosEjemplo.clientes.length
+    });
+  }
+});
+
+app.get('/api/test/productos', async (req, res) => {
+  try {
+    const productos = await leerSheet('LISTADO PRODUCTO');
+    res.json({
+      success: true,
+      count: productos.length,
+      sample: productos.slice(0, 3),
+      message: 'Productos cargados correctamente'
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      fallback: datosEjemplo.productos.length
     });
   }
 });
