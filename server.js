@@ -277,6 +277,18 @@ app.post('/webhook', async (req, res) => {
   }
 });
 
+// Iniciar servidor
+app.listen(PORT, async () => {
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  console.log(`🌐 Dashboard: http://localhost:${PORT}`);
+  
+  // Verificar Google Sheets al iniciar
+  await verificarGoogleSheets();
+  
+  // Configurar webhook después de un delay
+  setTimeout(configurarWebhook, 5000);
+});
+
 // Manejar mensajes
 async function manejarMensaje(message) {
   const chatId = message.chat.id;
