@@ -887,6 +887,29 @@ async function enviarMensaje(chatId, texto, opciones = {}) {
   }
 }
 
+// Responder a callback query
+async function answerCallbackQuery(callbackQueryId, texto = '') {
+  if (!TELEGRAM_BOT_TOKEN) return;
+  
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+        text: texto
+      })
+    });
+    
+    if (!response.ok) {
+      console.error('Error respondiendo callback:', await response.text());
+    }
+  } catch (error) {
+    console.error('Error en answerCallbackQuery:', error);
+  }
+}
+
 // Configurar webhook automáticamente
 async function configurarWebhook() {
   if (!TELEGRAM_BOT_TOKEN || !WEBHOOK_URL) {
