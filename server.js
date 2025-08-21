@@ -165,20 +165,19 @@ app.get('/api/clientes', async (req, res) => {
 
 app.get('/api/categorias', async (req, res) => {
   try {
-    const clientes = await leerSheet('LISTADO CLIENTES');
-    // Extraer categorías únicas de la columna "Lista de Precios"
-    const categoriasSet = new Set();
-    clientes.forEach(cliente => {
-      if (cliente['Lista de Precios']) {
-        categoriasSet.add(cliente['Lista de Precios']);
-      }
-    });
-    
-    // Convertir a formato de categorías con ID
-    const categorias = Array.from(categoriasSet).map((nombre, index) => ({
-      categoria_id: index + 1,
-      categoria_nombre: nombre
-    }));
+    // Categorías fijas basadas en los productos disponibles
+    const categorias = [
+      { categoria_id: 1, categoria_nombre: 'Galletitas' },
+      { categoria_id: 2, categoria_nombre: 'Bebidas' },
+      { categoria_id: 3, categoria_nombre: 'Lácteos' },
+      { categoria_id: 4, categoria_nombre: 'Panadería' },
+      { categoria_id: 5, categoria_nombre: 'Conservas' },
+      { categoria_id: 6, categoria_nombre: 'Snacks' },
+      { categoria_id: 7, categoria_nombre: 'Dulces' },
+      { categoria_id: 8, categoria_nombre: 'Limpieza' },
+      { categoria_id: 9, categoria_nombre: 'Higiene Personal' },
+      { categoria_id: 10, categoria_nombre: 'Congelados' }
+    ];
     
     res.json(categorias);
   } catch (error) {
@@ -547,10 +546,16 @@ async function manejarCallback(callback_query) {
         return;
       }
       
-      const keyboard = clientes.slice(0, 10).map(cliente => [{ 
-        text: `👤 ${cliente['Razón Social'] || cliente['Nombre Fantasía'] || cliente.nombre || 'Cliente sin nombre'}`, 
-        callback_data: `cliente_${cliente['Código'] || cliente.cliente_id || cliente.id}` 
-      }]);
+      const keyboard = clientes.slice(0, 10).map(cliente => {
+        // Usar las columnas exactas del CSV
+        const nombre = cliente['Razón Social'] || cliente['Nombre Fantasía'] || 'Cliente sin nombre';
+        const codigo = cliente['Código'] || cliente.codigo || cliente.id;
+        
+        return [{ 
+          text: `👤 ${nombre}`, 
+          callback_data: `cliente_${codigo}` 
+        }];
+      });
       
       keyboard.push([{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }]);
       keyboard.push([{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]);
@@ -586,23 +591,28 @@ async function manejarCallback(callback_query) {
     const clienteCodigo = data.split('_')[1];
     try {
       const clientes = await leerSheet('LISTADO CLIENTES');
-      const cliente = clientes.find(c => (c['Código'] || c.cliente_id || c.id) == clienteCodigo);
+      const cliente = clientes.find(c => c['Código'] == clienteCodigo);
       
       if (cliente) {
         sesion.clienteSeleccionado = {
-          id: cliente['Código'] || cliente.cliente_id || cliente.id,
-          nombre: cliente['Razón Social'] || cliente['Nombre Fantasía'] || cliente.nombre || 'Cliente'
+          id: cliente['Código'],
+          nombre: cliente['Razón Social'] || cliente['Nombre Fantasía'] || 'Cliente'
         };
         sesion.estado = 'cliente_confirmado';
         sesionesBot.set(userId, sesion);
         
-        // Categorías de productos
+        // Categorías fijas
         const categorias = [
           { categoria_id: 1, categoria_nombre: 'Galletitas' },
           { categoria_id: 2, categoria_nombre: 'Bebidas' },
           { categoria_id: 3, categoria_nombre: 'Lácteos' },
           { categoria_id: 4, categoria_nombre: 'Panadería' },
-          { categoria_id: 5, categoria_nombre: 'Conservas' }
+          { categoria_id: 5, categoria_nombre: 'Conservas' },
+          { categoria_id: 6, categoria_nombre: 'Snacks' },
+          { categoria_id: 7, categoria_nombre: 'Dulces' },
+          { categoria_id: 8, categoria_nombre: 'Limpieza' },
+          { categoria_id: 9, categoria_nombre: 'Higiene Personal' },
+          { categoria_id: 10, categoria_nombre: 'Congelados' }
         ];
         
         const keyboard = categorias.map(cat => [{ 
@@ -661,10 +671,45 @@ async function manejarCallback(callback_query) {
       const productos = await leerSheet('LISTADO PRODUCTO');
       console.log(`📦 Productos totales encontrados: ${productos.length}`);
       
-      const productosFiltrados = productos.filter(p => 
-        (p.categoria_id == categoriaId || p['categoria_id'] == categoriaId || p.Categoria == categoriaId) && 
-        (p.activo === 'SI' || p['activo'] === 'SI' || p.Activo === 'SI')
-      );
+      // Mapear categorías a productos específicos del CSV
+      let productosFiltrados = [];
+      
+      if (categoriaId == '1') { // Galletitas
+        productosFiltrados = productos.filter(p => 
+          p['producto_nombre'] && (
+            p['producto_nombre'].toLowerCase().includes('oreo') ||
+            p['producto_nombre'].toLowerCase().includes('pepitos') ||
+            p['producto_nombre'].toLowerCase().includes('tita') ||
+            p['producto_nombre'].toLowerCase().includes('chocolinas') ||
+            p['producto_nombre'].toLowerCase().includes('criollitas') ||
+            p['producto_nombre'].toLowerCase().includes('sonrisas')
+          )
+        );
+      } else if (categoriaId == '2') { // Bebidas
+        productosFiltrados = productos.filter(p => 
+          p['producto_nombre'] && (
+            p['producto_nombre'].toLowerCase().includes('coca') ||
+            p['producto_nombre'].toLowerCase().includes('agua') ||
+            p['producto_nombre'].toLowerCase().includes('jugo') ||
+            p['producto_nombre'].toLowerCase().includes('sprite') ||
+            p['producto_nombre'].toLowerCase().includes('fanta')
+          )
+        );
+      } else if (categoriaId == '3') { // Lácteos
+        productosFiltrados = productos.filter(p => 
+          p['producto_nombre'] && (
+            p['producto_nombre'].toLowerCase().includes('leche') ||
+            p['producto_nombre'].toLowerCase().includes('yogur') ||
+            p['producto_nombre'].toLowerCase().includes('queso') ||
+            p['producto_nombre'].toLowerCase().includes('manteca') ||
+            p['producto_nombre'].toLowerCase().includes('dulce de leche') ||
+            p['producto_nombre'].toLowerCase().includes('crema')
+          )
+        );
+      } else {
+        // Para otras categorías, mostrar algunos productos de ejemplo
+        productosFiltrados = productos.slice(0, 5);
+      }
       
       console.log(`📦 Productos filtrados: ${productosFiltrados.length}`);
       
@@ -679,10 +724,16 @@ async function manejarCallback(callback_query) {
         return;
       }
       
-      const keyboard = productosFiltrados.map(prod => [{ 
-        text: `${prod.producto_nombre || prod['producto_nombre'] || prod.Producto} - $${prod.precio || prod['precio'] || prod.Precio}`, 
-        callback_data: `producto_${prod.producto_id || prod['producto_id'] || prod.ID}` 
-      }]);
+      const keyboard = productosFiltrados.map(prod => {
+        const nombre = prod['producto_nombre'] || 'Producto';
+        const precio = prod['precio'] || '0';
+        const id = prod['producto_id'] || Math.random().toString(36).substr(2, 9);
+        
+        return [{ 
+          text: `${nombre} - $${precio}`, 
+          callback_data: `producto_${id}` 
+        }];
+      });
       
       keyboard.push([{ text: '🔙 Volver a Categorías', callback_data: 'continuar_pedido' }]);
       
@@ -709,15 +760,15 @@ async function manejarCallback(callback_query) {
     const productoId = data.split('_')[1];
     try {
       const productos = await leerSheet('LISTADO PRODUCTO');
-      const producto = productos.find(p => (p.producto_id || p['producto_id'] || p.ID) == productoId);
+      const producto = productos.find(p => p['producto_id'] == productoId);
       
       if (producto) {
         sesion.estado = 'esperando_cantidad';
         sesion.productoSeleccionado = {
-          producto_id: producto.producto_id || producto['producto_id'] || producto.ID,
-          producto_nombre: producto.producto_nombre || producto['producto_nombre'] || producto.Producto,
-          precio: parseInt(producto.precio || producto['precio'] || producto.Precio || 0),
-          categoria_id: producto.categoria_id || producto['categoria_id'] || producto.Categoria || 1
+          producto_id: producto['producto_id'],
+          producto_nombre: producto['producto_nombre'],
+          precio: parseInt(producto['precio'] || 0),
+          categoria_id: producto['categoria_id'] || 1
         };
         sesionesBot.set(userId, sesion);
         
@@ -785,13 +836,18 @@ async function manejarCallback(callback_query) {
         }
       });
     } else {
-      // Categorías de productos
+      // Categorías fijas
       const categorias = [
         { categoria_id: 1, categoria_nombre: 'Galletitas' },
         { categoria_id: 2, categoria_nombre: 'Bebidas' },
         { categoria_id: 3, categoria_nombre: 'Lácteos' },
         { categoria_id: 4, categoria_nombre: 'Panadería' },
-        { categoria_id: 5, categoria_nombre: 'Conservas' }
+        { categoria_id: 5, categoria_nombre: 'Conservas' },
+        { categoria_id: 6, categoria_nombre: 'Snacks' },
+        { categoria_id: 7, categoria_nombre: 'Dulces' },
+        { categoria_id: 8, categoria_nombre: 'Limpieza' },
+        { categoria_id: 9, categoria_nombre: 'Higiene Personal' },
+        { categoria_id: 10, categoria_nombre: 'Congelados' }
       ];
       
       const keyboard = categorias.map(cat => [{ 
@@ -914,17 +970,15 @@ async function manejarCallback(callback_query) {
       const productos = await leerSheet('LISTADO PRODUCTO');
       console.log(`📦 Productos encontrados para mostrar: ${productos.length}`);
       
-      const productosActivos = productos.filter(p => {
-        const activo = p.activo || p['activo'] || p.Activo || 'SI';
-        return activo === 'SI';
-      });
+      // Mostrar todos los productos disponibles
+      const productosActivos = productos.filter(p => p['producto_nombre'] && p['precio']);
       
       console.log(`📦 Productos activos: ${productosActivos.length}`);
       
       let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
       productosActivos.slice(0, 15).forEach(prod => {
-        const nombre = prod.producto_nombre || prod['producto_nombre'] || prod.Producto || 'Producto';
-        const precio = prod.precio || prod['precio'] || prod.Precio || 0;
+        const nombre = prod['producto_nombre'] || 'Producto';
+        const precio = prod['precio'] || 0;
         mensaje += `• ${nombre} - $${precio}\n`;
       });
       
