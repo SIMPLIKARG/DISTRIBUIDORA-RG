@@ -435,139 +435,37 @@ async function manejarMensaje(message) {
         '1', // Lista de Precios
         '  -   -' // Fecha Nacimiento
       ]);
-    const parts = data.split('_');
-    const clienteId = parts[1];
-    const clienteNombre = decodeURIComponent(parts[2] || 'Cliente');
-    
+      
       // Seleccionar el nuevo cliente
       sesion.clienteSeleccionado = {
-      nombre: clienteNombre
+        'Código': nuevoId,
         'Razón Social': nombreCliente
       };
       sesion.estado = 'cliente_confirmado';
       sesionesBot.set(userId, sesion);
-    await enviarMensaje(chatId, `✅ Cliente seleccionado: ${clienteNombre}\n\n📂 Selecciona una categoría:`, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🍪 Galletitas', callback_data: 'categoria_galletitas' }],
-          [{ text: '🥤 Bebidas', callback_data: 'categoria_bebidas' }],
-          [{ text: '🥛 Lácteos', callback_data: 'categoria_lacteos' }],
-          [{ text: '🍞 Panadería', callback_data: 'categoria_panaderia' }],
-          [{ text: '🥫 Conservas', callback_data: 'categoria_conservas' }],
-          [{ text: '🍿 Snacks', callback_data: 'categoria_snacks' }],
-          [{ text: '🍭 Dulces', callback_data: 'categoria_dulces' }],
-          [{ text: '🧽 Limpieza', callback_data: 'categoria_limpieza' }],
-          [{ text: '🧴 Higiene', callback_data: 'categoria_higiene' }],
-          [{ text: '🧊 Congelados', callback_data: 'categoria_congelados' }]
-        ]
-      }
-    });
-    return;
-  }
-  
-  if (data.startsWith('categoria_')) {
-    if (!sesion.clienteSeleccionado) {
-      await enviarMensaje(chatId, '❌ Primero debes seleccionar un cliente', {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '👤 Seleccionar Cliente', callback_data: 'hacer_pedido' }]
-          ]
-        }
-      });
-      return;
-    }
-    
-    const categoria = data.split('_')[1];
       
-      const categorias = [
-    // Filtrar productos por categoría usando palabras clave
-    let productosFiltrados = [];
-    
-    switch(categoria) {
-      case 'galletitas':
-        productosFiltrados = productos.filter(p => 
-          p.Descripción && (
-            p.Descripción.toLowerCase().includes('oreo') ||
-            p.Descripción.toLowerCase().includes('pepito') ||
-            p.Descripción.toLowerCase().includes('galletita') ||
-            p.Descripción.toLowerCase().includes('cookie') ||
-            p.Descripción.toLowerCase().includes('tita') ||
-            p.Descripción.toLowerCase().includes('chocolina')
-          )
-        );
-        break;
-      case 'bebidas':
-        productosFiltrados = productos.filter(p => 
-          p.Descripción && (
-            p.Descripción.toLowerCase().includes('coca') ||
-            p.Descripción.toLowerCase().includes('sprite') ||
-            p.Descripción.toLowerCase().includes('fanta') ||
-            p.Descripción.toLowerCase().includes('agua') ||
-            p.Descripción.toLowerCase().includes('jugo') ||
-            p.Descripción.toLowerCase().includes('gaseosa')
-          )
-        );
-        break;
-      case 'lacteos':
-        productosFiltrados = productos.filter(p => 
-          p.Descripción && (
-            p.Descripción.toLowerCase().includes('leche') ||
-            p.Descripción.toLowerCase().includes('yogur') ||
-            p.Descripción.toLowerCase().includes('queso') ||
-            p.Descripción.toLowerCase().includes('manteca') ||
-            p.Descripción.toLowerCase().includes('dulce de leche')
-          )
-        );
-        break;
-      default:
-        productosFiltrados = productos.slice(0, 10); // Mostrar primeros 10 si no hay filtro específico
-    }
-    
-    if (productosFiltrados.length === 0) {
-      await enviarMensaje(chatId, `❌ No hay productos disponibles en esta categoría`, {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🔙 Volver a categorías', callback_data: `cliente_${sesion.clienteSeleccionado.id}_${encodeURIComponent(sesion.clienteSeleccionado.nombre)}` }]
-          ]
-        }
-      });
-      return;
-    }
-    
-    const keyboard = productosFiltrados.slice(0, 10).map(prod => [{ 
-      text: `${prod.Descripción} - $${prod['Precio Venta'] || prod.Precio || '0'}`, 
-      callback_data: `producto_${prod.Código}_${encodeURIComponent(prod.Descripción)}_${prod['Precio Venta'] || prod.Precio || 0}` 
-    }]);
-    
-    await enviarMensaje(chatId, `🛍️ Productos disponibles en ${categoria}:\n(Cliente: ${sesion.clienteSeleccionado.nombre})`, {
-        { categoria_id: 3, categoria_nombre: 'Lácteos' },
-        inline_keyboard: [
-          ...keyboard,
-          [{ text: '🔙 Volver a categorías', callback_data: `cliente_${sesion.clienteSeleccionado.id}_${encodeURIComponent(sesion.clienteSeleccionado.nombre)}` }]
-        ]
-      }]);
-      
-    return;
       await enviarMensaje(chatId, `✅ Cliente "${nombreCliente}" agregado y seleccionado\n\n📂 Selecciona una categoría:`, {
         reply_markup: {
-      sesion.estado = 'inicio';
-    const parts = data.split('_');
-    const productoId = parts[1];
-    const productoNombre = decodeURIComponent(parts[2] || 'Producto');
-    const productoPrecio = parseFloat(parts[3] || 0);
           inline_keyboard: [
-    if (productoId && productoNombre && productoPrecio > 0) {
-            [{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }],
-            [{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]
-        id: productoId,
-        nombre: productoNombre,
-        precio: productoPrecio
+            [{ text: '🍪 Galletitas', callback_data: 'categoria_galletitas' }],
+            [{ text: '🥤 Bebidas', callback_data: 'categoria_bebidas' }],
+            [{ text: '🥛 Lácteos', callback_data: 'categoria_lacteos' }],
+            [{ text: '🍞 Panadería', callback_data: 'categoria_panaderia' }],
+            [{ text: '🥫 Conservas', callback_data: 'categoria_conservas' }],
+            [{ text: '🍿 Snacks', callback_data: 'categoria_snacks' }],
+            [{ text: '🍭 Dulces', callback_data: 'categoria_dulces' }],
+            [{ text: '🧽 Limpieza', callback_data: 'categoria_limpieza' }],
+            [{ text: '🧴 Higiene', callback_data: 'categoria_higiene' }],
+            [{ text: '🧊 Congelados', callback_data: 'categoria_congelados' }]
+          ]
+        }
+      });
       
+    } catch (error) {
+      console.error('Error agregando cliente:', error);
+      await enviarMensaje(chatId, '❌ Error agregando cliente. Intenta de nuevo.');
+      sesion.estado = 'inicio';
       sesionesBot.set(userId, sesion);
-    } else {
-      await enviarMensaje(chatId, `📦 ${productoNombre}\n💰 Precio: $${productoPrecio}\n👤 Cliente: ${sesion.clienteSeleccionado?.nombre || 'No seleccionado'}\n\n¿Cuántas unidades quieres? (1-50)`);
-    } else {
-      await enviarMensaje(chatId, '❌ Error con el producto seleccionado. Intenta de nuevo.');
     }
     return;
   }
@@ -584,9 +482,9 @@ async function manejarCallback(callback_query) {
   
   if (data === 'hacer_pedido') {
     await enviarMensaje(chatId, '👤 Primero, selecciona el cliente para este pedido:', {
-    const keyboard = clientes.slice(0, 15).map(cliente => [{ 
-      text: cliente['Razón Social'] || cliente.nombre, 
-      callback_data: `cliente_${cliente.Código}_${encodeURIComponent(cliente['Razón Social'] || cliente.nombre)}` 
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
           [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
           [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
         ]
@@ -1188,11 +1086,12 @@ app.get('/test-sheets', async (req, res) => {
   } catch (error) {
     res.json({
       connected: false,
-    await enviarMensaje(chatId, '👤 Selecciona un cliente:\n(Mostrando primeros 15 clientes)', {
+      error: error.message,
       solution: 'Verifica configuración de Google Sheets'
     });
   }
 });
+
 // Dashboard web
 app.get('/', (req, res) => {
   const html = `<!DOCTYPE html>
