@@ -874,7 +874,6 @@ async function manejarCallback(callback_query) {
       await enviarMensaje(chatId, mensaje, {
         reply_markup: {
           inline_keyboard: [...editButtons, ...actionButtons]
-          ]
         }
       });
     }
@@ -1431,7 +1430,6 @@ app.get('/', (req, res) => {
 </body>
 </html>`;
   
-  res.send(html);
   res.send(html);
 });
 
