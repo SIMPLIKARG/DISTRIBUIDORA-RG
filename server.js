@@ -469,7 +469,6 @@ async function manejarMensaje(message) {
     const cantidad = parseInt(texto);
     const producto = sesion.productoSeleccionado;
     if (cantidad > 0) {
-    if (cantidad > 0) {
       if (sesion.estado === 'esperando_cantidad') {
         // Agregar nuevo producto
         const producto = sesion.productoSeleccionado;
@@ -891,6 +890,106 @@ async function manejarCallback(callback_query) {
   }
   
   if (data === 'ver_carrito') {
+    // Manejar edición de items del carrito
+    if (data.startsWith('editar_item_')) {
+      const itemIndex = parseInt(data.split('_')[2]);
+      
+      if (sesion.pedido.items[itemIndex]) {
+        const item = sesion.pedido.items[itemIndex];
+        
+        await enviarMensaje(chatId, `✏️ Editando: ${item.nombre}\n💰 Precio unitario: $${item.precio}\n📦 Cantidad actual: ${item.cantidad}\n\n¿Qué deseas hacer?`, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔢 Cambiar Cantidad', callback_data: `cambiar_cantidad_${itemIndex}` }],
+              [{ text: '🗑️ Eliminar Item', callback_data: `eliminar_item_${itemIndex}` }],
+              [{ text: '🔙 Volver al Carrito', callback_data: 'ver_carrito' }]
+            ]
+          }
+        });
+      }
+      return;
+    }
+    
+    // Manejar cambio de cantidad
+    if (data.startsWith('cambiar_cantidad_')) {
+      const itemIndex = parseInt(data.split('_')[2]);
+      
+      if (sesion.pedido.items[itemIndex]) {
+        const item = sesion.pedido.items[itemIndex];
+        sesion.estado = 'esperando_nueva_cantidad';
+        sesion.itemEditandoIndex = itemIndex;
+        sesionesBot.set(userId, sesion);
+        
+        await enviarMensaje(chatId, `🔢 ${item.nombre}\n📦 Cantidad actual: ${item.cantidad}\n💰 Precio unitario: $${item.precio}\n\nIngresa la nueva cantidad:`);
+      }
+      return;
+    }
+    
+    // Manejar eliminación de item
+    if (data.startsWith('eliminar_item_')) {
+      const itemIndex = parseInt(data.split('_')[2]);
+      
+      if (sesion.pedido.items[itemIndex]) {
+        const item = sesion.pedido.items[itemIndex];
+        
+        // Restar del total
+        sesion.pedido.total -= item.importe;
+        
+        // Eliminar item del array
+        sesion.pedido.items.splice(itemIndex, 1);
+        
+        sesionesBot.set(userId, sesion);
+        
+        await enviarMensaje(chatId, `🗑️ ${item.nombre} eliminado del carrito\n💰 Total actualizado: $${sesion.pedido.total}`);
+        
+        // Mostrar carrito actualizado
+        setTimeout(() => {
+          manejarCallback({ 
+            message: { chat: { id: chatId } }, 
+            data: 'ver_carrito',
+            from: { id: userId }
+          });
+        }, 1000);
+      }
+      return;
+    }
+    
+    if (sesion.pedido.items.length === 0) {
+      await enviarMensaje(chatId, '🛒 Tu carrito está vacío\n\n¿Deseas agregar productos?', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
+          ]
+        }
+      });
+    } else {
+      let mensaje = '🛒 TU CARRITO:\n\n';
+      sesion.pedido.items.forEach((item, index) => {
+        mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n`;
+      });
+      mensaje += `💰 TOTAL: $${sesion.pedido.total}`;
+      
+      // Crear botones para editar cada item
+      const editButtons = sesion.pedido.items.map((item, index) => [{
+        text: `✏️ Editar: ${item.nombre.substring(0, 25)}${item.nombre.length > 25 ? '...' : ''}`,
+        callback_data: `editar_item_${index}`
+      }]);
+      
+      const actionButtons = [
+        [{ text: '➕ Agregar más', callback_data: 'hacer_pedido' }],
+        [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }],
+        [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }]
+      ];
+      
+      await enviarMensaje(chatId, mensaje, {
+        reply_markup: {
+          inline_keyboard: [...editButtons, ...actionButtons]
+        }
+      });
+    }
+    return;
+  }
+  
   // Manejar edición de items del carrito
   if (data.startsWith('editar_item_')) {
     const itemIndex = parseInt(data.split('_')[2]);
@@ -951,42 +1050,6 @@ async function manejarCallback(callback_query) {
           from: { id: userId }
         });
       }, 1000);
-    }
-    return;
-  }
-  
-    if (sesion.pedido.items.length === 0) {
-      await enviarMensaje(chatId, '🛒 Tu carrito está vacío\n\n¿Deseas agregar productos?', {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '🛍️ Hacer Pedido', callback_data: 'hacer_pedido' }]
-          ]
-        }
-      });
-    } else {
-      let mensaje = '🛒 TU CARRITO:\n\n';
-      sesion.pedido.items.forEach((item, index) => {
-        mensaje += `${index + 1}. ${item.nombre}\n   ${item.cantidad}x $${item.precio} = $${item.importe}\n`;
-      });
-      mensaje += `💰 TOTAL: $${sesion.pedido.total}`;
-      
-      // Crear botones para editar cada item
-      const editButtons = sesion.pedido.items.map((item, index) => [{
-        text: `✏️ Editar: ${item.nombre.substring(0, 25)}${item.nombre.length > 25 ? '...' : ''}`,
-        callback_data: `editar_item_${index}`
-      }]);
-      
-      const actionButtons = [
-        [{ text: '➕ Agregar más', callback_data: 'hacer_pedido' }],
-        [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }],
-        [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }]
-      ];
-      
-      await enviarMensaje(chatId, mensaje, {
-        reply_markup: {
-          inline_keyboard: [...editButtons, ...actionButtons]
-        }
-      });
     }
     return;
   }
