@@ -400,7 +400,7 @@ async function manejarMensaje(message) {
     const cantidad = parseInt(texto);
     const producto = sesion.productoSeleccionado;
     
-    if (cantidad > 0) {
+    if (cantidad > 0 && cantidad <= 50) {
       const importe = producto.precio * cantidad;
       sesion.pedido.items.push({
         producto_id: producto.producto_id,
@@ -425,7 +425,7 @@ async function manejarMensaje(message) {
       
       sesionesBot.set(userId, sesion);
     } else {
-      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número mayor a 0:');
+      await enviarMensaje(chatId, '❌ Cantidad inválida. Ingresa un número entre 1 y 50:');
     }
   }
 }
@@ -563,7 +563,7 @@ async function manejarCallback(callback_query) {
       sesion.productoSeleccionado = producto;
       sesionesBot.set(userId, sesion);
       
-      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres?`);
+      await enviarMensaje(chatId, `📦 ${producto.producto_nombre}\n💰 Precio: $${producto.precio}\n\n¿Cuántas unidades quieres? (1-50)`);
     }
   }
   
@@ -643,17 +643,8 @@ async function manejarCallback(callback_query) {
       return;
     }
     
-    // Obtener el próximo número de pedido
-    const pedidosExistentes = await leerSheet('Pedidos');
-    const numerosExistentes = pedidosExistentes
-      .map(p => p.pedido_id)
-      .filter(id => id && id.startsWith('PED'))
-      .map(id => parseInt(id.replace('PED', '')))
-      .filter(num => !isNaN(num));
-    
-    const proximoNumero = numerosExistentes.length > 0 ? Math.max(...numerosExistentes) + 1 : 1;
-    const pedidoId = `PED${String(proximoNumero).padStart(3, '0')}`;
-    
+    // Crear pedido
+    const pedidoId = `PED${String(contadorPedidos++).padStart(3, '0')}`;
     const fechaHora = new Date().toLocaleString('es-AR');
     const clienteNombre = sesion.clienteSeleccionado.nombre;
     const clienteId = sesion.clienteSeleccionado.cliente_id;
@@ -678,7 +669,7 @@ async function manejarCallback(callback_query) {
     // Guardar detalles del pedido en DetallePedidos
     for (let i = 0; i < sesion.pedido.items.length; i++) {
       const item = sesion.pedido.items[i];
-      const detalleId = `DET${String(proximoNumero).padStart(3, '0')}_${i + 1}`;
+      const detalleId = `DET${String(contadorPedidos).padStart(3, '0')}_${i + 1}`;
       
       await escribirSheet('DetallePedidos', [
         detalleId,
@@ -1066,7 +1057,7 @@ app.get('/', (req, res) => {
 });
 
 // Iniciar servidor
-app.listen(PORT, async () => {
+const server = app.listen(PORT, async () => {
   console.log('🚀 Servidor corriendo en puerto ' + PORT);
   console.log('🌐 Dashboard: http://localhost:' + PORT);
   
@@ -1075,4 +1066,32 @@ app.listen(PORT, async () => {
   
   // Configurar webhook después de un delay
   setTimeout(configurarWebhook, 5000);
+});
+
+// Manejo de señales para Railway
+process.on('SIGTERM', () => {
+  console.log('🛑 Recibida señal SIGTERM, cerrando servidor...');
+  server.close(() => {
+    console.log('✅ Servidor cerrado correctamente');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Recibida señal SIGINT, cerrando servidor...');
+  server.close(() => {
+    console.log('✅ Servidor cerrado correctamente');
+    process.exit(0);
+  });
+});
+
+// Manejo de errores no capturados
+process.on('uncaughtException', (error) => {
+  console.error('❌ Error no capturado:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Promise rechazada no manejada:', reason);
+  process.exit(1);
 });
