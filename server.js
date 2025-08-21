@@ -61,23 +61,23 @@ async function leerSheet(nombreHoja) {
       const row = rows[i];
       if (!row || row.length === 0) continue;
 
-      // Para LISTADO CLIENTES buscar "Código" y "Razón Social"
+      // Para LISTADO CLIENTES buscar "Activo", "Código" y "Razón Social"
       if (nombreHoja === 'LISTADO CLIENTES') {
-        if (row.some(cell => cell && cell.toString().toLowerCase().includes('código')) &&
+        if (row.some(cell => cell && cell.toString().toLowerCase().includes('activo')) &&
+            row.some(cell => cell && cell.toString().toLowerCase().includes('código')) &&
             row.some(cell => cell && cell.toString().toLowerCase().includes('razón social'))) {
           headerRowIndex = i;
           headers = row;
           break;
         }
       }
-      // Para LISTADO PRODUCTO buscar "Código" y "Descripción"
+      // Para LISTADO PRODUCTO buscar "Código", "Artículo" y "Rubro"
       else if (nombreHoja === 'LISTADO PRODUCTO') {
         if (row.some(cell => cell && cell.toString().toLowerCase().includes('código')) &&
             row.some(cell => cell && cell.toString().toLowerCase().includes('artículo')) &&
             row.some(cell => cell && cell.toString().toLowerCase().includes('rubro'))) {
           headerRowIndex = i;
           headers = row;
-          console.log(`🔍 Headers encontrados en ${nombreHoja}:`, headers);
           break;
         }
       }
@@ -109,9 +109,9 @@ async function leerSheet(nombreHoja) {
       });
       
       // Solo agregar si tiene datos mínimos requeridos
-      if (nombreHoja === 'LISTADO CLIENTES' && obj['Código'] && obj['Razón Social']) {
+      if (nombreHoja === 'LISTADO CLIENTES' && obj['Activo'] === 'SI' && obj['Código'] && obj['Razón Social']) {
         result.push(obj);
-      } else if (nombreHoja === 'LISTADO PRODUCTO' && obj['Código'] && obj['Artículo']) {
+      } else if (nombreHoja === 'LISTADO PRODUCTO' && obj['Código'] && obj['Artículo'] && obj['Rubro']) {
         result.push(obj);
       }
     }
@@ -200,7 +200,7 @@ app.get('/api/rubros', async (req, res) => {
     }
     
     // Extraer rubros únicos
-   const rubros = [...new Set(productos.map(p => p.Rubro || p.rubro).filter(r => r))];
+    const rubros = [...new Set(productos.map(p => p.Rubro).filter(r => r))];
     res.json(rubros.sort());
   } catch (error) {
     console.error('Error obteniendo rubros:', error);
@@ -217,7 +217,7 @@ app.get('/api/productos/:rubro', async (req, res) => {
       productos = datosEjemplo.productos;
     }
     
-    const productosFiltrados = productos.filter(p => (p.Rubro || p.rubro) === rubro);
+    const productosFiltrados = productos.filter(p => p.Rubro === rubro);
     res.json(productosFiltrados);
   } catch (error) {
     console.error('Error obteniendo productos por rubro:', error);
@@ -321,7 +321,7 @@ async function manejarMensaje(message) {
     const producto = sesion.productoSeleccionado;
     
     if (cantidad > 0 && cantidad <= 100) {
-      const precio = parseInt(producto['Lista 1'] || producto.Lista1 || 0);
+      const precio = parseFloat(producto['Lista 1'] || 0);
       const importe = precio * cantidad;
       
       sesion.pedido.items.push({
@@ -426,7 +426,7 @@ async function manejarCallback(callback_query) {
       
       const productosFiltrados = productos.filter(p => p.Rubro === rubro);
       const keyboard = productosFiltrados.slice(0, 15).map(prod => [{ 
-        text: `${prod.Artículo} - $${prod['Lista 1'] || prod.Lista1 || 'S/P'}`, 
+        text: `${prod.Artículo} - $${prod['Lista 1'] || 'S/P'}`, 
         callback_data: `producto_${prod.Código}` 
       }]);
       
@@ -476,7 +476,7 @@ async function manejarCallback(callback_query) {
         sesion.productoSeleccionado = producto;
         sesionesBot.set(userId, sesion);
         
-        const precio = producto['Lista 1'] || producto.Lista1 || 'Consultar';
+        const precio = producto['Lista 1'] || 'Consultar';
         await enviarMensaje(chatId, `📦 ${producto.Artículo}\n💰 Precio: $${precio}\n\n¿Cuántas unidades quieres? (1-100)`);
       }
     }
@@ -592,7 +592,7 @@ async function manejarCallback(callback_query) {
       
       let mensaje = '📦 PRODUCTOS DISPONIBLES:\n\n';
       productos.slice(0, 20).forEach(prod => {
-      const precio = prod['Lista 1'] || prod.Lista1 || 'Consultar';
+        const precio = prod['Lista 1'] || 'Consultar';
       mensaje += `• ${prod.Artículo} - $${precio}\n`;
       });
       
