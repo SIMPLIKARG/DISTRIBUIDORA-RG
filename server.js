@@ -748,11 +748,16 @@ async function enviarMensaje(chatId, texto, opciones = {}) {
 // Configurar webhook automáticamente
 async function configurarWebhook() {
   if (!TELEGRAM_BOT_TOKEN || !WEBHOOK_URL) {
-    console.log('⚠️ Telegram no configurado completamente');
+    console.log('⚠️ Telegram no configurado completamente:');
+    console.log(`   BOT_TOKEN: ${TELEGRAM_BOT_TOKEN ? '✅ Configurado' : '❌ Faltante'}`);
+    console.log(`   WEBHOOK_URL: ${WEBHOOK_URL ? '✅ Configurado' : '❌ Faltante'}`);
     return;
   }
   
   try {
+    console.log('🔧 Configurando webhook de Telegram...');
+    console.log(`   URL: ${WEBHOOK_URL}`);
+    
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`;
     const response = await fetch(url, {
       method: 'POST',
@@ -763,11 +768,24 @@ async function configurarWebhook() {
     const result = await response.json();
     if (result.ok) {
       console.log('✅ Webhook configurado:', WEBHOOK_URL);
+      
+      // Verificar configuración
+      const infoResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo`);
+      const info = await infoResponse.json();
+      
+      if (info.ok) {
+        console.log('📋 Info del webhook:');
+        console.log(`   URL: ${info.result.url}`);
+        console.log(`   Actualizaciones pendientes: ${info.result.pending_update_count}`);
+        if (info.result.last_error_date) {
+          console.log(`   ⚠️ Último error: ${info.result.last_error_message}`);
+        }
+      }
     } else {
-      console.log('⚠️ Error configurando webhook:', result.description);
+      console.error('❌ Error configurando webhook:', result.description);
     }
   } catch (error) {
-    console.log('⚠️ Error configurando webhook:', error.message);
+    console.error('❌ Error configurando webhook:', error.message);
   }
 }
 
