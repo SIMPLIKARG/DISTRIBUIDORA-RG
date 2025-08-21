@@ -414,6 +414,44 @@ async function manejarMensaje(message) {
     }
     return;
   }
+  
+  // Manejar búsqueda de productos
+  if (sesion.estado === 'esperando_busqueda_producto') {
+    const productos = await leerSheet('Productos');
+    const productosActivos = productos.filter(p => p.activo === 'SI');
+    
+    const productosEncontrados = productosActivos.filter(p => 
+      p.producto_nombre && p.producto_nombre.toLowerCase().includes(texto.toLowerCase())
+    );
+    
+    console.log(`🔍 Búsqueda de productos "${texto}": ${productosEncontrados.length} resultados`);
+    
+    if (productosEncontrados.length === 0) {
+      await enviarMensaje(chatId, `❌ No encontré productos con "${texto}"\n\nIntenta con otro término de búsqueda:`);
+    } else if (productosEncontrados.length > 20) {
+      await enviarMensaje(chatId, `🔍 Encontré ${productosEncontrados.length} productos con "${texto}"\n\nSé más específico para ver menos resultados:`);
+    } else {
+      // Ordenar productos encontrados alfabéticamente
+      productosEncontrados.sort((a, b) => a.producto_nombre.localeCompare(b.producto_nombre));
+      
+      const keyboard = productosEncontrados.map(prod => [{ 
+        text: `${prod.producto_nombre} - $${prod.precio}`, 
+        callback_data: `producto_${prod.producto_id}` 
+      }]);
+      
+      keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_producto' }]);
+      keyboard.push([{ text: '📂 Ver por Categorías', callback_data: 'ver_categorias' }]);
+      
+      await enviarMensaje(chatId, `🔍 Encontré ${productosEncontrados.length} productos con "${texto}":`, {
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    }
+    
+    return;
+  }
+  
   // Manejar cantidad de producto
   if (sesion.estado === 'esperando_cantidad' && /^\d+$/.test(texto)) {
     const cantidad = parseInt(texto);
@@ -642,7 +680,9 @@ async function manejarCallback(callback_query) {
         reply_markup: {
           inline_keyboard: [
             ...keyboard,
-            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+            [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }],
+            [{ text: '📍 Cambiar Localidad', callback_data: 'cambiar_localidad' }],
+            [{ text: '🔍 Buscar Producto', callback_data: 'buscar_producto' }]
           ]
         }
       });
@@ -658,16 +698,82 @@ async function manejarCallback(callback_query) {
     return;
   }
   
+  if (data === 'cambiar_localidad') {
+    // Limpiar localidad y cliente seleccionados
+    sesion.localidadSeleccionada = null;
+    sesion.clienteSeleccionado = null;
+    sesionesBot.set(userId, sesion);
+    
+    // Mostrar localidades disponibles
+    const clientes = await leerSheet('Clientes');
+    const localidades = [...new Set(clientes.map(c => c.localidad).filter(l => l && l.trim()))];
+    
+    if (localidades.length === 0) {
+      await enviarMensaje(chatId, '⚠️ No hay localidades configuradas.', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
+            [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+          ]
+        }
+      });
+      return;
+    }
+    
+    const keyboard = localidades.sort().map(localidad => [{ 
+      text: `📍 ${localidad}`, 
+      callback_data: `localidad_${Buffer.from(localidad).toString('base64')}` 
+    }]);
+    
+    await enviarMensaje(chatId, '📍 Selecciona una localidad:', {
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    return;
+  }
+  
+  if (data === 'buscar_producto') {
+    sesion.estado = 'esperando_busqueda_producto';
+    sesionesBot.set(userId, sesion);
+    
+    await enviarMensaje(chatId, '🔍 Escribe el nombre del producto que buscas:\n\n(Ejemplo: "oreo", "coca", "leche", etc.)');
+    return;
+  }
+  
+  if (data === 'ver_categorias') {
+    const categorias = await leerSheet('Categorias');
+    const categoriasOrdenadas = categorias.sort((a, b) => a.categoria_nombre.localeCompare(b.categoria_nombre));
+    const keyboard = categoriasOrdenadas.map(cat => [{ 
+      text: cat.categoria_nombre, 
+      callback_data: `categoria_${cat.categoria_id}` 
+    }]);
+    
+    await enviarMensaje(chatId, `👤 Cliente: ${sesion.clienteSeleccionado?.nombre || 'No seleccionado'}\n\n📂 Selecciona una categoría:`, {
+      reply_markup: { 
+        inline_keyboard: [
+          ...keyboard,
+          [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }],
+          [{ text: '📍 Cambiar Localidad', callback_data: 'cambiar_localidad' }],
+          [{ text: '🔍 Buscar Producto', callback_data: 'buscar_producto' }]
+        ]
+      }
+    });
+    return;
+  }
+  
   if (data === 'seleccionar_cliente') {
     await enviarMensaje(chatId, '👤 Selecciona el cliente para este pedido:', {
       reply_markup: {
         inline_keyboard: [
           [{ text: '📋 Ver Lista de Clientes', callback_data: 'lista_clientes' }],
           [{ text: '✍️ Buscar por Nombre', callback_data: 'buscar_cliente' }],
-          [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }]
+          [{ text: '➕ Agregar Nuevo Cliente', callback_data: 'nuevo_cliente' }],
+          [{ text: '📍 Cambiar Localidad', callback_data: 'cambiar_localidad' }]
         ]
       }
     });
+    return;
   }
   
   
@@ -721,16 +827,19 @@ async function manejarCallback(callback_query) {
           inline_keyboard: [
             [{ text: '➕ Agregar más', callback_data: 'continuar_pedido' }],
             [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }],
-            [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }]
+            [{ text: '✅ Finalizar Pedido', callback_data: 'finalizar_pedido' }],
+            [{ text: '🔍 Buscar Producto', callback_data: 'buscar_producto' }]
           ]
         }
       });
     }
+    return;
   }
   
   if (data === 'continuar_pedido') {
     const categorias = await leerSheet('Categorias');
-    const keyboard = categorias.map(cat => [{ 
+    const categoriasOrdenadas = categorias.sort((a, b) => a.categoria_nombre.localeCompare(b.categoria_nombre));
+    const keyboard = categoriasOrdenadas.map(cat => [{ 
       text: cat.categoria_nombre, 
       callback_data: `categoria_${cat.categoria_id}` 
     }]);
@@ -739,10 +848,13 @@ async function manejarCallback(callback_query) {
       reply_markup: { 
         inline_keyboard: [
           ...keyboard,
-          [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }]
+          [{ text: '👤 Cambiar Cliente', callback_data: 'seleccionar_cliente' }],
+          [{ text: '📍 Cambiar Localidad', callback_data: 'cambiar_localidad' }],
+          [{ text: '🔍 Buscar Producto', callback_data: 'buscar_producto' }]
         ]
       }
     });
+    return;
   }
   
   if (data === 'vaciar_carrito') {
