@@ -254,19 +254,25 @@ let contadorPedidos = 1;
 // Webhook de Telegram
 app.post('/webhook', async (req, res) => {
   try {
+    console.log('📨 Webhook recibido:', JSON.stringify(req.body, null, 2));
+    
     const { message, callback_query } = req.body;
     
     if (message) {
+      console.log('💬 Procesando mensaje de:', message.from.first_name);
       await manejarMensaje(message);
     }
     
     if (callback_query) {
+      console.log('🔘 Procesando callback:', callback_query.data);
       await manejarCallback(callback_query);
     }
     
+    console.log('✅ Webhook procesado exitosamente');
     res.status(200).send('OK');
   } catch (error) {
-    console.error('Error en webhook:', error);
+    console.error('❌ Error en webhook:', error.message);
+    console.error('Stack:', error.stack);
     res.status(500).send('Error');
   }
 });
@@ -756,18 +762,22 @@ async function configurarWebhook() {
   
   try {
     console.log('🔧 Configurando webhook de Telegram...');
-    console.log(`   URL: ${WEBHOOK_URL}`);
+    console.log(`   URL: https://${WEBHOOK_URL}`);
     
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: WEBHOOK_URL })
+      body: JSON.stringify({ 
+        url: `https://${WEBHOOK_URL}`,
+        allowed_updates: ["message", "callback_query"],
+        drop_pending_updates: true
+      })
     });
     
     const result = await response.json();
     if (result.ok) {
-      console.log('✅ Webhook configurado:', WEBHOOK_URL);
+      console.log('✅ Webhook configurado:', `https://${WEBHOOK_URL}`);
       
       // Verificar configuración
       const infoResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo`);
@@ -777,8 +787,12 @@ async function configurarWebhook() {
         console.log('📋 Info del webhook:');
         console.log(`   URL: ${info.result.url}`);
         console.log(`   Actualizaciones pendientes: ${info.result.pending_update_count}`);
+        console.log(`   Certificado SSL: ${info.result.has_custom_certificate ? 'Sí' : 'No'}`);
         if (info.result.last_error_date) {
-          console.log(`   ⚠️ Último error: ${info.result.last_error_message}`);
+          const errorDate = new Date(info.result.last_error_date * 1000);
+          console.log(`   ⚠️ Último error (${errorDate.toLocaleString()}): ${info.result.last_error_message}`);
+        } else {
+          console.log('   ✅ Sin errores recientes');
         }
       }
     } else {
