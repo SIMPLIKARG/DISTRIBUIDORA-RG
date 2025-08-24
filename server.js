@@ -288,17 +288,7 @@ bot.on('callback_query', async (ctx) => {
       const keyboard = [];
       
       // Opción de búsqueda al inicio
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
+      keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
       
       // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
@@ -343,8 +333,28 @@ bot.on('callback_query', async (ctx) => {
           callback_data: `localidad_${localidad}`
         }]);
       });
+      
+      // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
       // Agregar cada localidad
       localidades.forEach(localidad => {
         const cantidadClientes = clientesAgrupados[localidad].length;
