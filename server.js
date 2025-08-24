@@ -309,6 +309,26 @@ bot.on('callback_query', async (ctx) => {
           callback_data: `localidad_${localidad}`
         }]);
       });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
       
       // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
