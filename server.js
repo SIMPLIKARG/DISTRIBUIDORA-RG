@@ -43,11 +43,11 @@ const searchStates = new Map();
 // Datos de ejemplo (fallback si no hay Google Sheets)
 const datosEjemplo = {
   clientes: [
-    { cliente_id: 1, nombre: 'Juan Pérez', lista: 1 },
-    { cliente_id: 2, nombre: 'María González', lista: 2 },
-    { cliente_id: 3, nombre: 'Carlos Rodríguez', lista: 1 },
-    { cliente_id: 4, nombre: 'Ana Martínez', lista: 3 },
-    { cliente_id: 5, nombre: 'Luis Fernández', lista: 2 }
+    { cliente_id: 1, nombre: 'Juan Pérez', lista: 1, localidad: 'Centro' },
+    { cliente_id: 2, nombre: 'María González', lista: 2, localidad: 'Norte' },
+    { cliente_id: 3, nombre: 'Carlos Rodríguez', lista: 1, localidad: 'Centro' },
+    { cliente_id: 4, nombre: 'Ana Martínez', lista: 3, localidad: 'Sur' },
+    { cliente_id: 5, nombre: 'Luis Fernández', lista: 2, localidad: 'Norte' }
   ],
   categorias: [
     { categoria_id: 1, categoria_nombre: 'Galletitas' },
@@ -202,6 +202,22 @@ async function generarPedidoId() {
     return `PD${String(Date.now()).slice(-6).padStart(6, '0')}`;
   }
 }
+
+// Función para agrupar clientes por localidad
+function agruparClientesPorLocalidad(clientes) {
+  const agrupados = {};
+  
+  clientes.forEach(cliente => {
+    const localidad = cliente.localidad || 'Sin localidad';
+    if (!agrupados[localidad]) {
+      agrupados[localidad] = [];
+    }
+    agrupados[localidad].push(cliente);
+  });
+  
+  return agrupados;
+}
+
 // Comandos del bot
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
@@ -264,17 +280,27 @@ bot.on('callback_query', async (ctx) => {
       console.log(`👥 ${clientes.length} clientes disponibles`);
       setUserState(userId, { step: 'seleccionar_cliente' });
       
-      const keyboard = clientes.map(cliente => {
-        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
-        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
-        
-        return [{
-          text: `👤 ${nombreCliente}`,
-          callback_data: `cliente_${clienteId}`
-        }];
-      });
+      // Agrupar clientes por localidad
+      const clientesAgrupados = agruparClientesPorLocalidad(clientes);
+      const localidades = Object.keys(clientesAgrupados);
       
+      // Crear keyboard con búsqueda primero, luego localidades
+      const keyboard = [];
+      
+      // Opción de búsqueda al inicio
       keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
       
       await ctx.editMessageText('👤 Selecciona el cliente:', {
         reply_markup: { inline_keyboard: keyboard }
@@ -323,6 +349,41 @@ bot.on('callback_query', async (ctx) => {
       await ctx.editMessageText(`✅ Cliente: ${nombreCliente}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
+      
+    } else if (callbackData.startsWith('localidad_')) {
+      const localidad = decodeURIComponent(callbackData.split('_')[1]);
+      console.log(`📍 Localidad seleccionada: ${localidad}`);
+      
+      const clientes = await obtenerDatosSheet('Clientes');
+      const clientesLocalidad = clientes.filter(cliente => 
+        (cliente.localidad || 'Sin localidad') === localidad
+      );
+      
+      if (clientesLocalidad.length === 0) {
+        await ctx.reply('❌ No hay clientes en esta localidad');
+        return;
+      }
+      
+      const keyboard = clientesLocalidad.map(cliente => {
+        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
+        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
+        
+        return [{
+          text: `👤 ${nombreCliente}`,
+          callback_data: `cliente_${clienteId}`
+        }];
+      });
+      
+      // Botón para volver a localidades
+      keyboard.push([{ text: '🔙 Volver a localidades', callback_data: 'hacer_pedido' }]);
+      
+      await ctx.editMessageText(`📍 ${localidad} - Selecciona el cliente:`, {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
+    } else if (callbackData === 'separator') {
+      // No hacer nada, es solo visual
+      return;
       
     } else if (callbackData.startsWith('categoria_')) {
       const categoriaId = parseInt(callbackData.split('_')[1]);
