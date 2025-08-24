@@ -38,16 +38,15 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token');
 // Estado del usuario (en memoria - en producción usar base de datos)
 const userStates = new Map();
 const userCarts = new Map();
-const searchStates = new Map();
 
 // Datos de ejemplo (fallback si no hay Google Sheets)
 const datosEjemplo = {
   clientes: [
-    { cliente_id: 1, nombre: 'Juan Pérez', lista: 1, localidad: 'Centro' },
-    { cliente_id: 2, nombre: 'María González', lista: 2, localidad: 'Norte' },
-    { cliente_id: 3, nombre: 'Carlos Rodríguez', lista: 1, localidad: 'Centro' },
-    { cliente_id: 4, nombre: 'Ana Martínez', lista: 3, localidad: 'Sur' },
-    { cliente_id: 5, nombre: 'Luis Fernández', lista: 2, localidad: 'Norte' }
+    { cliente_id: 1, nombre: 'Juan Pérez', lista: 1 },
+    { cliente_id: 2, nombre: 'María González', lista: 2 },
+    { cliente_id: 3, nombre: 'Carlos Rodríguez', lista: 1 },
+    { cliente_id: 4, nombre: 'Ana Martínez', lista: 3 },
+    { cliente_id: 5, nombre: 'Luis Fernández', lista: 2 }
   ],
   categorias: [
     { categoria_id: 1, categoria_nombre: 'Galletitas' },
@@ -80,14 +79,6 @@ function getUserCart(userId) {
 
 function setUserCart(userId, cart) {
   userCarts.set(userId, cart);
-}
-
-function getSearchState(userId) {
-  return searchStates.get(userId) || {};
-}
-
-function setSearchState(userId, state) {
-  searchStates.set(userId, state);
 }
 
 // Función para obtener datos de Google Sheets
@@ -174,50 +165,6 @@ function calcularPrecio(producto, listaCliente) {
   return producto[precioKey] || producto.precio1 || 0;
 }
 
-// Función para generar ID de pedido autoincremental
-async function generarPedidoId() {
-  try {
-    if (!SPREADSHEET_ID) {
-      return `PD${String(Date.now()).slice(-6).padStart(6, '0')}`;
-    }
-
-    const pedidos = await obtenerDatosSheet('Pedidos');
-    
-    // Encontrar el último número de pedido
-    let ultimoNumero = 0;
-    pedidos.forEach(pedido => {
-      if (pedido.pedido_id && pedido.pedido_id.startsWith('PD')) {
-        const numero = parseInt(pedido.pedido_id.replace('PD', ''));
-        if (numero > ultimoNumero) {
-          ultimoNumero = numero;
-        }
-      }
-    });
-    
-    const nuevoNumero = ultimoNumero + 1;
-    return `PD${String(nuevoNumero).padStart(6, '0')}`;
-    
-  } catch (error) {
-    console.error('❌ Error generando ID:', error);
-    return `PD${String(Date.now()).slice(-6).padStart(6, '0')}`;
-  }
-}
-
-// Función para agrupar clientes por localidad
-function agruparClientesPorLocalidad(clientes) {
-  const agrupados = {};
-  
-  clientes.forEach(cliente => {
-    const localidad = cliente.localidad || 'Sin localidad';
-    if (!agrupados[localidad]) {
-      agrupados[localidad] = [];
-    }
-    agrupados[localidad].push(cliente);
-  });
-  
-  return agrupados;
-}
-
 // Comandos del bot
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
@@ -280,477 +227,17 @@ bot.on('callback_query', async (ctx) => {
       console.log(`👥 ${clientes.length} clientes disponibles`);
       setUserState(userId, { step: 'seleccionar_cliente' });
       
-      // Agrupar clientes por localidad
-      const clientesAgrupados = agruparClientesPorLocalidad(clientes);
-      const localidades = Object.keys(clientesAgrupados);
-      
-      // Crear keyboard con búsqueda primero, luego localidades
-      const keyboard = [];
-      
-      // Opción de búsqueda al inicio
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
+      const keyboard = clientes.map(cliente => {
+        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
+        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
+        
+        return [{
+          text: `👤 ${nombreCliente}`,
+          callback_data: `cliente_${clienteId}`
+        }];
       });
       
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-        await ctx.reply('🔢 Escribe la cantidad que deseas:');
-      
-      // Agregar cada localidad UNA SOLA VEZ
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      await ctx.reply('👤 Selecciona el cliente:', {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      
-    } else if (callbackData === 'seguir_comprando') {
-      const userState = getUserState(userId);
-      const cliente = userState.cliente;
-      const cart = getUserCart(userId);
-      
-      if (!cliente) {
-        return bot.handleUpdate({
-          callback_query: { ...ctx.callbackQuery, data: 'hacer_pedido' }
-        });
-      }
-      
-      console.log(`🛒 ${userName} sigue comprando para ${cliente.nombre}`);
-      
-      const categorias = await obtenerDatosSheet('Categorias');
-      
-      const keyboard = categorias.map(cat => [{
-        text: `📂 ${cat.categoria_nombre || cat.Categoria_nombre || 'Categoría'}`,
-        callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
-      }]);
-      
-      keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
-      keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
-      
-      const cartInfo = cart.length > 0 ? ` (${cart.length} productos)` : '';
-      
-      await ctx.editMessageText(`✅ Cliente: ${cliente.nombre}${cartInfo}\n\n📂 Selecciona una categoría:`, {
+      await ctx.editMessageText('👤 Selecciona el cliente:', {
         reply_markup: { inline_keyboard: keyboard }
       });
       
@@ -775,13 +262,14 @@ bot.on('callback_query', async (ctx) => {
       const nombreCliente = cliente.nombre || cliente.Nombre || 'Cliente';
       const clienteNormalizado = {
         ...cliente,
-        nombre: nombreCliente
+        nombre: nombreCliente,
+        cliente_id: cliente.cliente_id || cliente.Cliente_id || cliente.id
       };
       
       setUserState(userId, { 
         step: 'seleccionar_categoria', 
         cliente: clienteNormalizado,
-        pedido_id: await generarPedidoId()
+        pedido_id: `PED${Date.now()}`
       });
       
       const categorias = await obtenerDatosSheet('Categorias');
@@ -791,47 +279,11 @@ bot.on('callback_query', async (ctx) => {
         callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
       }]);
       
-      keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
       await ctx.editMessageText(`✅ Cliente: ${nombreCliente}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
-      
-    } else if (callbackData.startsWith('localidad_')) {
-      const localidad = decodeURIComponent(callbackData.split('_')[1]);
-      console.log(`📍 Localidad seleccionada: ${localidad}`);
-      
-      const clientes = await obtenerDatosSheet('Clientes');
-      const clientesLocalidad = clientes.filter(cliente => 
-        (cliente.localidad || 'Sin localidad') === localidad
-      );
-      
-      if (clientesLocalidad.length === 0) {
-        await ctx.reply('❌ No hay clientes en esta localidad');
-        return;
-      }
-      
-      const keyboard = clientesLocalidad.map(cliente => {
-        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
-        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
-        
-        return [{
-          text: `👤 ${nombreCliente}`,
-          callback_data: `cliente_${clienteId}`
-        }];
-      });
-      
-      // Botón para volver a localidades
-      keyboard.push([{ text: '🔙 Volver a localidades', callback_data: 'hacer_pedido' }]);
-      
-      await ctx.editMessageText(`📍 ${localidad} - Selecciona el cliente:`, {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      
-    } else if (callbackData === 'separator') {
-      // No hacer nada, es solo visual
-      return;
       
     } else if (callbackData.startsWith('categoria_')) {
       const categoriaId = parseInt(callbackData.split('_')[1]);
@@ -854,7 +306,6 @@ bot.on('callback_query', async (ctx) => {
         callback_data: `producto_${producto.producto_id}`
       }]);
       
-      keyboard.push([{ text: '🔍 Buscar producto', callback_data: `buscar_producto_${categoriaId}` }]);
       keyboard.push([{ text: '📂 Ver categorías', callback_data: 'hacer_pedido' }]);
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
@@ -941,7 +392,7 @@ bot.on('callback_query', async (ctx) => {
       });
       setUserCart(userId, cart);
       
-      await ctx.reply(
+      await ctx.editMessageText(
         `✅ Agregado al carrito:\n🛍️ ${producto.producto_nombre}\n📦 Cantidad: ${cantidad}\n💰 Subtotal: $${importe.toLocaleString()}\n\n¿Qué más necesitas?`,
         {
           reply_markup: {
@@ -958,7 +409,7 @@ bot.on('callback_query', async (ctx) => {
       const cart = getUserCart(userId);
       
       if (cart.length === 0) {
-        await ctx.reply('🛒 Tu carrito está vacío', {
+        await ctx.editMessageText('🛒 Tu carrito está vacío', {
           reply_markup: {
             inline_keyboard: [
               [{ text: '🛍️ Empezar a comprar', callback_data: 'hacer_pedido' }]
@@ -980,7 +431,7 @@ bot.on('callback_query', async (ctx) => {
       
       mensaje += `💰 *Total: $${total.toLocaleString()}*`;
       
-      await ctx.reply(mensaje, {
+      await ctx.editMessageText(mensaje, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -1003,27 +454,13 @@ bot.on('callback_query', async (ctx) => {
       
     } else if (callbackData === 'vaciar_carrito') {
       setUserCart(userId, []);
-      await ctx.reply('🗑️ Carrito vaciado', {
+      await ctx.editMessageText('🗑️ Carrito vaciado', {
         reply_markup: {
           inline_keyboard: [
             [{ text: '🛍️ Empezar a comprar', callback_data: 'hacer_pedido' }]
           ]
         }
       });
-      
-    } else if (callbackData === 'buscar_cliente') {
-      setUserState(userId, { ...getUserState(userId), step: 'buscar_cliente' });
-      await ctx.reply('🔍 Escribe el nombre del cliente que buscas:');
-      
-    } else if (callbackData.startsWith('buscar_producto_')) {
-      const categoriaId = parseInt(callbackData.split('_')[2]);
-      setUserState(userId, { 
-        ...getUserState(userId), 
-        step: 'buscar_producto',
-        categoria_busqueda: categoriaId
-      });
-      await ctx.reply('🔍 Escribe el nombre del producto que buscas:');
-      
     }
     
   } catch (error) {
@@ -1089,98 +526,6 @@ bot.on('text', async (ctx) => {
         }
       );
       
-    } else if (userState.step === 'buscar_cliente') {
-      const termino = text.toLowerCase().trim();
-      
-      if (termino.length < 2) {
-        await ctx.reply('❌ Escribe al menos 2 caracteres para buscar');
-        return;
-      }
-      
-      const clientes = await obtenerDatosSheet('Clientes');
-      const clientesFiltrados = clientes.filter(cliente => {
-        const nombre = (cliente.nombre || cliente.Nombre || '').toLowerCase();
-        return nombre.includes(termino);
-      });
-      
-      if (clientesFiltrados.length === 0) {
-        await ctx.reply(`❌ No se encontraron clientes con "${text}"`, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_cliente' }],
-              [{ text: '👥 Ver todos los clientes', callback_data: 'hacer_pedido' }]
-            ]
-          }
-        });
-        return;
-      }
-      
-      const keyboard = clientesFiltrados.map(cliente => {
-        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
-        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
-        
-        return [{
-          text: `👤 ${nombreCliente}`,
-          callback_data: `cliente_${clienteId}`
-        }];
-      });
-      
-      keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_cliente' }]);
-      keyboard.push([{ text: '👥 Ver todos', callback_data: 'hacer_pedido' }]);
-      
-      await ctx.reply(`🔍 Encontrados ${clientesFiltrados.length} cliente(s):`, {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      
-    } else if (userState.step === 'buscar_producto') {
-      const termino = text.toLowerCase().trim();
-      
-      if (termino.length < 2) {
-        await ctx.reply('❌ Escribe al menos 2 caracteres para buscar');
-        return;
-      }
-      
-      const productos = await obtenerDatosSheet('Productos');
-      const categoriaId = userState.categoria_busqueda;
-      
-      const productosFiltrados = productos.filter(producto => {
-        const nombre = (producto.producto_nombre || '').toLowerCase();
-        const enCategoria = !categoriaId || producto.categoria_id == categoriaId;
-        const activo = producto.activo === 'SI';
-        return nombre.includes(termino) && enCategoria && activo;
-      });
-      
-      if (productosFiltrados.length === 0) {
-        await ctx.reply(`❌ No se encontraron productos con "${text}"`, {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }],
-              [{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]
-            ]
-          }
-        });
-        return;
-      }
-      
-      const keyboard = productosFiltrados.map(producto => [{
-        text: `🛍️ ${producto.producto_nombre}`,
-        callback_data: `producto_${producto.producto_id}`
-      }]);
-      keyboard.push([{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]);
-      const botonesBusquedaExitosa = categoriaId ? [
-        [{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }],
-        [{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]
-      ] : [
-        [{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_producto_general' }],
-        [{ text: '📂 Ver categorías', callback_data: 'seguir_comprando' }]
-      ];
-      
-      keyboard.push(...botonesBusquedaExitosa);
-      
-      await ctx.reply(`🔍 Encontrados ${productosFiltrados.length} producto(s):`, {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      
     } else {
       // Mensaje no reconocido
       await ctx.reply(
@@ -1237,7 +582,7 @@ async function confirmarPedido(ctx, userId) {
       cliente.nombre,
       itemsTotal,
       montoTotal,
-      'PENDIENTE'
+      'CONFIRMADO'
     ];
     
     await agregarDatosSheet('Pedidos', pedidoData);
@@ -1266,14 +611,13 @@ async function confirmarPedido(ctx, userId) {
     setUserCart(userId, []);
     
     // Mensaje de confirmación
-    let mensaje = `✅ *Pedido registrado*\n\n`;
+    let mensaje = `✅ *Pedido confirmado*\n\n`;
     mensaje += `📋 ID: ${pedidoId}\n`;
     mensaje += `👤 Cliente: ${cliente.nombre}\n`;
     mensaje += `📅 Fecha: ${fechaHora}\n`;
     mensaje += `📦 Items: ${itemsTotal}\n`;
     mensaje += `💰 Total: $${montoTotal.toLocaleString()}\n\n`;
-    mensaje += `⏳ Estado: PENDIENTE\n\n`;
-    mensaje += `🎉 ¡Pedido registrado exitosamente!`;
+    mensaje += `🎉 ¡Gracias por tu pedido!`;
     
     await ctx.reply(mensaje, {
       parse_mode: 'Markdown',
