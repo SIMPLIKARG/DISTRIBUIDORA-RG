@@ -284,7 +284,9 @@ bot.on('callback_query', async (ctx) => {
       const clientesAgrupados = agruparClientesPorLocalidad(clientes);
       const localidades = Object.keys(clientesAgrupados);
       
-      // Crear keyboard con búsqueda primero, luego localidades
+      // Crear keyboard con localidades
+      const keyboard = [];
+      
       const keyboard = [];
       
       // Opción de búsqueda al inicio
@@ -339,14 +341,6 @@ bot.on('callback_query', async (ctx) => {
           callback_data: `localidad_${localidad}`
         }]);
       });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
       // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
