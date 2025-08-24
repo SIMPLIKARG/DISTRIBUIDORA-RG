@@ -585,7 +585,31 @@ bot.on('callback_query', async (ctx) => {
         return;
       }
       
-      await confirmarPedido(ctx, userId);
+      // Preguntar por observaciones antes de finalizar
+      setUserState(userId, { 
+        ...getUserState(userId), 
+        step: 'pregunta_observacion' 
+      });
+      
+      await ctx.reply('📝 ¿Deseas agregar alguna observación al pedido?', {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '✅ Sí, agregar observación', callback_data: 'agregar_observacion' }],
+            [{ text: '❌ No, finalizar sin observación', callback_data: 'finalizar_sin_observacion' }]
+          ]
+        }
+      });
+      
+    } else if (callbackData === 'agregar_observacion') {
+      setUserState(userId, { 
+        ...getUserState(userId), 
+        step: 'escribir_observacion' 
+      });
+      
+      await ctx.reply('📝 Escribe tu observación para el pedido:');
+      
+    } else if (callbackData === 'finalizar_sin_observacion') {
+      await confirmarPedido(ctx, userId, '');
       
     } else if (callbackData === 'vaciar_carrito') {
       setUserCart(userId, []);
@@ -767,6 +791,24 @@ bot.on('text', async (ctx) => {
         reply_markup: { inline_keyboard: keyboard }
       });
       
+    } else if (userState.step === 'escribir_observacion') {
+      const observacion = text.trim();
+      
+      if (observacion.length === 0) {
+        await ctx.reply('❌ Por favor escribe una observación válida o usa /start para cancelar');
+        return;
+      }
+      
+      if (observacion.length > 500) {
+        await ctx.reply('❌ La observación es muy larga. Máximo 500 caracteres.');
+        return;
+      }
+      
+      console.log(`📝 Observación de ${userName}: "${observacion}"`);
+      
+      // Confirmar pedido con observación
+      await confirmarPedido(ctx, userId, observacion);
+      
     } else {
       // Mensaje no reconocido
       await ctx.reply(
@@ -788,7 +830,7 @@ bot.on('text', async (ctx) => {
 });
 
 // Función para confirmar pedido
-async function confirmarPedido(ctx, userId) {
+async function confirmarPedido(ctx, userId, observacion = '') {
   try {
     const userState = getUserState(userId);
     const cart = getUserCart(userId);
@@ -800,7 +842,7 @@ async function confirmarPedido(ctx, userId) {
       return;
     }
     
-    console.log(`✅ Confirmando pedido ${pedidoId} para ${cliente.nombre}`);
+    console.log(`✅ Confirmando pedido ${pedidoId} para ${cliente.nombre}${observacion ? ' con observación' : ''}`);
     
     // Calcular totales
     const itemsTotal = cart.reduce((sum, item) => sum + item.cantidad, 0);
@@ -823,7 +865,8 @@ async function confirmarPedido(ctx, userId) {
       cliente.nombre,
       itemsTotal,
       montoTotal,
-      'PENDIENTE'
+      'PENDIENTE',
+      observacion
     ];
     
     await agregarDatosSheet('Pedidos', pedidoData);
@@ -858,6 +901,11 @@ async function confirmarPedido(ctx, userId) {
     mensaje += `📅 Fecha: ${fechaHora}\n`;
     mensaje += `📦 Items: ${itemsTotal}\n`;
     mensaje += `💰 Total: $${montoTotal.toLocaleString()}\n\n`;
+    
+    if (observacion) {
+      mensaje += `📝 Observación: ${observacion}\n`;
+    }
+    
     mensaje += `⏳ Estado: PENDIENTE\n\n`;
     mensaje += `🎉 ¡Pedido registrado exitosamente!`;
     
