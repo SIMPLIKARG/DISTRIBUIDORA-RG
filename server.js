@@ -287,6 +287,9 @@ bot.on('callback_query', async (ctx) => {
       // Crear keyboard con búsqueda primero, luego localidades
       const keyboard = [];
       
+      // Botón de búsqueda al inicio
+      keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
+      
       // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
@@ -331,6 +334,11 @@ bot.on('callback_query', async (ctx) => {
       await ctx.editMessageText(`✅ Cliente: ${cliente.nombre}${cartInfo}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
+      
+    } else if (callbackData === 'buscar_cliente') {
+      console.log(`🔍 ${userName} inicia búsqueda de cliente`);
+      setUserState(userId, { step: 'buscar_cliente' });
+      await ctx.editMessageText('🔍 Escribe el nombre del cliente que buscas:');
       
     } else if (callbackData.startsWith('cliente_')) {
       const clienteId = parseInt(callbackData.split('_')[1]);
