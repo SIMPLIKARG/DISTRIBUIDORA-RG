@@ -38,6 +38,7 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN || 'dummy_token');
 // Estado del usuario (en memoria - en producción usar base de datos)
 const userStates = new Map();
 const userCarts = new Map();
+const searchStates = new Map();
 
 // Datos de ejemplo (fallback si no hay Google Sheets)
 const datosEjemplo = {
@@ -79,6 +80,14 @@ function getUserCart(userId) {
 
 function setUserCart(userId, cart) {
   userCarts.set(userId, cart);
+}
+
+function getSearchState(userId) {
+  return searchStates.get(userId) || {};
+}
+
+function setSearchState(userId, state) {
+  searchStates.set(userId, state);
 }
 
 // Función para obtener datos de Google Sheets
@@ -165,6 +174,34 @@ function calcularPrecio(producto, listaCliente) {
   return producto[precioKey] || producto.precio1 || 0;
 }
 
+// Función para generar ID de pedido autoincremental
+async function generarPedidoId() {
+  try {
+    if (!SPREADSHEET_ID) {
+      return `PD${String(Date.now()).slice(-6).padStart(6, '0')}`;
+    }
+
+    const pedidos = await obtenerDatosSheet('Pedidos');
+    
+    // Encontrar el último número de pedido
+    let ultimoNumero = 0;
+    pedidos.forEach(pedido => {
+      if (pedido.pedido_id && pedido.pedido_id.startsWith('PD')) {
+        const numero = parseInt(pedido.pedido_id.replace('PD', ''));
+        if (numero > ultimoNumero) {
+          ultimoNumero = numero;
+        }
+      }
+    });
+    
+    const nuevoNumero = ultimoNumero + 1;
+    return `PD${String(nuevoNumero).padStart(6, '0')}`;
+    
+  } catch (error) {
+    console.error('❌ Error generando ID:', error);
+    return `PD${String(Date.now()).slice(-6).padStart(6, '0')}`;
+  }
+}
 // Comandos del bot
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
@@ -237,6 +274,8 @@ bot.on('callback_query', async (ctx) => {
         }];
       });
       
+      keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
+      
       await ctx.editMessageText('👤 Selecciona el cliente:', {
         reply_markup: { inline_keyboard: keyboard }
       });
@@ -269,7 +308,7 @@ bot.on('callback_query', async (ctx) => {
       setUserState(userId, { 
         step: 'seleccionar_categoria', 
         cliente: clienteNormalizado,
-        pedido_id: `PED${Date.now()}`
+        pedido_id: await generarPedidoId()
       });
       
       const categorias = await obtenerDatosSheet('Categorias');
@@ -306,6 +345,7 @@ bot.on('callback_query', async (ctx) => {
         callback_data: `producto_${producto.producto_id}`
       }]);
       
+      keyboard.push([{ text: '🔍 Buscar producto', callback_data: `buscar_producto_${categoriaId}` }]);
       keyboard.push([{ text: '📂 Ver categorías', callback_data: 'hacer_pedido' }]);
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
@@ -461,6 +501,20 @@ bot.on('callback_query', async (ctx) => {
           ]
         }
       });
+      
+    } else if (callbackData === 'buscar_cliente') {
+      setUserState(userId, { ...getUserState(userId), step: 'buscar_cliente' });
+      await ctx.editMessageText('🔍 Escribe el nombre del cliente que buscas:');
+      
+    } else if (callbackData.startsWith('buscar_producto_')) {
+      const categoriaId = parseInt(callbackData.split('_')[2]);
+      setUserState(userId, { 
+        ...getUserState(userId), 
+        step: 'buscar_producto',
+        categoria_busqueda: categoriaId
+      });
+      await ctx.editMessageText('🔍 Escribe el nombre del producto que buscas:');
+      
     }
     
   } catch (error) {
@@ -526,6 +580,91 @@ bot.on('text', async (ctx) => {
         }
       );
       
+    } else if (userState.step === 'buscar_cliente') {
+      const termino = text.toLowerCase().trim();
+      
+      if (termino.length < 2) {
+        await ctx.reply('❌ Escribe al menos 2 caracteres para buscar');
+        return;
+      }
+      
+      const clientes = await obtenerDatosSheet('Clientes');
+      const clientesFiltrados = clientes.filter(cliente => {
+        const nombre = (cliente.nombre || cliente.Nombre || '').toLowerCase();
+        return nombre.includes(termino);
+      });
+      
+      if (clientesFiltrados.length === 0) {
+        await ctx.reply(`❌ No se encontraron clientes con "${text}"`, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_cliente' }],
+              [{ text: '👥 Ver todos los clientes', callback_data: 'hacer_pedido' }]
+            ]
+          }
+        });
+        return;
+      }
+      
+      const keyboard = clientesFiltrados.map(cliente => {
+        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
+        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
+        
+        return [{
+          text: `👤 ${nombreCliente}`,
+          callback_data: `cliente_${clienteId}`
+        }];
+      });
+      
+      keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_cliente' }]);
+      keyboard.push([{ text: '👥 Ver todos', callback_data: 'hacer_pedido' }]);
+      
+      await ctx.reply(`🔍 Encontrados ${clientesFiltrados.length} cliente(s):`, {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
+    } else if (userState.step === 'buscar_producto') {
+      const termino = text.toLowerCase().trim();
+      
+      if (termino.length < 2) {
+        await ctx.reply('❌ Escribe al menos 2 caracteres para buscar');
+        return;
+      }
+      
+      const productos = await obtenerDatosSheet('Productos');
+      const categoriaId = userState.categoria_busqueda;
+      
+      const productosFiltrados = productos.filter(producto => {
+        const nombre = (producto.producto_nombre || '').toLowerCase();
+        const enCategoria = !categoriaId || producto.categoria_id == categoriaId;
+        const activo = producto.activo === 'SI';
+        return nombre.includes(termino) && enCategoria && activo;
+      });
+      
+      if (productosFiltrados.length === 0) {
+        await ctx.reply(`❌ No se encontraron productos con "${text}"`, {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }],
+              [{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]
+            ]
+          }
+        });
+        return;
+      }
+      
+      const keyboard = productosFiltrados.map(producto => [{
+        text: `🛍️ ${producto.producto_nombre}`,
+        callback_data: `producto_${producto.producto_id}`
+      }]);
+      
+      keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }]);
+      keyboard.push([{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]);
+      
+      await ctx.reply(`🔍 Encontrados ${productosFiltrados.length} producto(s):`, {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
     } else {
       // Mensaje no reconocido
       await ctx.reply(
@@ -582,7 +721,7 @@ async function confirmarPedido(ctx, userId) {
       cliente.nombre,
       itemsTotal,
       montoTotal,
-      'CONFIRMADO'
+      'PENDIENTE'
     ];
     
     await agregarDatosSheet('Pedidos', pedidoData);
@@ -611,13 +750,14 @@ async function confirmarPedido(ctx, userId) {
     setUserCart(userId, []);
     
     // Mensaje de confirmación
-    let mensaje = `✅ *Pedido confirmado*\n\n`;
+    let mensaje = `✅ *Pedido registrado*\n\n`;
     mensaje += `📋 ID: ${pedidoId}\n`;
     mensaje += `👤 Cliente: ${cliente.nombre}\n`;
     mensaje += `📅 Fecha: ${fechaHora}\n`;
     mensaje += `📦 Items: ${itemsTotal}\n`;
     mensaje += `💰 Total: $${montoTotal.toLocaleString()}\n\n`;
-    mensaje += `🎉 ¡Gracias por tu pedido!`;
+    mensaje += `⏳ Estado: PENDIENTE\n\n`;
+    mensaje += `🎉 ¡Pedido registrado exitosamente!`;
     
     await ctx.reply(mensaje, {
       parse_mode: 'Markdown',
