@@ -288,7 +288,17 @@ bot.on('callback_query', async (ctx) => {
       const keyboard = [];
       
       // Opción de búsqueda al inicio
-      keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
       
       // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
