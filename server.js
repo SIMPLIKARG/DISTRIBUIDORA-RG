@@ -85,36 +85,52 @@ function setUserCart(userId, cart) {
 async function obtenerDatosSheet(nombreHoja) {
   try {
     if (!SPREADSHEET_ID) {
-      console.log(`⚠️ Google Sheets no configurado, usando datos de ejemplo para ${nombreHoja}`);
+      console.log(`⚠️ Google Sheets no configurado, usando datos de ejemplo`);
       return datosEjemplo[nombreHoja.toLowerCase()] || [];
     }
 
-    console.log(`📊 Obteniendo datos de la hoja: ${nombreHoja}`);
+    console.log(`📊 Obteniendo ${nombreHoja}...`);
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `${nombreHoja}!A:Z`,
     });
 
     const rows = response.data.values || [];
-    console.log(`📋 Filas obtenidas de ${nombreHoja}:`, rows.length);
+    console.log(`📋 ${nombreHoja}: ${rows.length} filas`);
     
     if (rows.length === 0) return [];
 
     const headers = rows[0];
-    console.log(`📋 Encabezados de ${nombreHoja}:`, headers);
+    console.log(`📋 Encabezados:`, headers);
     
-    const data = rows.slice(1).map(row => {
+    // Filtrar filas vacías y mapear datos
+    const data = rows.slice(1)
+      .filter(row => row && row.length > 0 && row[0] && row[0].toString().trim()) // Filtrar filas vacías
+      .map(row => {
       const obj = {};
       headers.forEach((header, index) => {
-        obj[header] = row[index] || '';
+        obj[header] = row[index] ? row[index].toString().trim() : '';
       });
       return obj;
-    });
+    })
+      .filter(obj => {
+        // Filtrar objetos con datos válidos según la hoja
+        if (nombreHoja === 'Clientes') {
+          return obj.cliente_id && obj.nombre && obj.nombre !== '';
+        }
+        if (nombreHoja === 'Categorias') {
+          return obj.categoria_id && obj.categoria_nombre && obj.categoria_nombre !== '';
+        }
+        if (nombreHoja === 'Productos') {
+          return obj.producto_id && obj.producto_nombre && obj.producto_nombre !== '';
+        }
+        return Object.values(obj).some(val => val && val !== '');
+      });
 
-    console.log(`📊 Datos procesados de ${nombreHoja}:`, data.slice(0, 3)); // Mostrar solo los primeros 3
+    console.log(`✅ ${nombreHoja}: ${data.length} registros válidos`);
     return data;
   } catch (error) {
-    console.error(`❌ Error obteniendo datos de ${nombreHoja}:`, error.message);
+    console.error(`❌ Error ${nombreHoja}:`, error.message);
     return datosEjemplo[nombreHoja.toLowerCase()] || [];
   }
 }
@@ -199,21 +215,20 @@ bot.on('callback_query', async (ctx) => {
     await ctx.answerCbQuery();
     
     if (callbackData === 'hacer_pedido') {
-      console.log(`🛒 ${userName} inicia nuevo pedido`);
+      console.log(`🛒 ${userName} inicia pedido`);
       
       const clientes = await obtenerDatosSheet('Clientes');
-      console.log('📋 Clientes obtenidos:', clientes);
       
       if (clientes.length === 0) {
         await ctx.reply('❌ No hay clientes disponibles');
         return;
       }
       
+      console.log(`👥 ${clientes.length} clientes disponibles`);
       setUserState(userId, { step: 'seleccionar_cliente' });
       
       const keyboard = clientes.map(cliente => {
-        console.log('👤 Procesando cliente:', cliente);
-        const nombreCliente = cliente.nombre || cliente.Nombre || 'Cliente sin nombre';
+        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
         const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
         
         return [{
@@ -228,7 +243,7 @@ bot.on('callback_query', async (ctx) => {
       
     } else if (callbackData.startsWith('cliente_')) {
       const clienteId = parseInt(callbackData.split('_')[1]);
-      console.log(`👤 Cliente seleccionado: ${clienteId}`);
+      console.log(`👤 Cliente: ${clienteId}`);
       
       const clientes = await obtenerDatosSheet('Clientes');
       const cliente = clientes.find(c => 
@@ -237,7 +252,6 @@ bot.on('callback_query', async (ctx) => {
         (c.id == clienteId)
       );
       
-      console.log('👤 Cliente encontrado:', cliente);
       
       if (!cliente) {
         await ctx.reply('❌ Cliente no encontrado');
@@ -259,7 +273,6 @@ bot.on('callback_query', async (ctx) => {
       });
       
       const categorias = await obtenerDatosSheet('Categorias');
-      console.log('📂 Categorías obtenidas:', categorias);
       
       const keyboard = categorias.map(cat => [{
         text: `📂 ${cat.categoria_nombre || cat.Categoria_nombre || 'Categoría'}`,
@@ -274,7 +287,7 @@ bot.on('callback_query', async (ctx) => {
       
     } else if (callbackData.startsWith('categoria_')) {
       const categoriaId = parseInt(callbackData.split('_')[1]);
-      console.log(`📂 Categoría seleccionada: ${categoriaId}`);
+      console.log(`📂 Categoría: ${categoriaId}`);
       
       const productos = await obtenerDatosSheet('Productos');
       const productosCategoria = productos.filter(p => p.categoria_id == categoriaId && p.activo === 'SI');
@@ -302,7 +315,7 @@ bot.on('callback_query', async (ctx) => {
       
     } else if (callbackData.startsWith('producto_')) {
       const productoId = parseInt(callbackData.split('_')[1]);
-      console.log(`🛍️ Producto seleccionado: ${productoId}`);
+      console.log(`🛍️ Producto: ${productoId}`);
       
       const productos = await obtenerDatosSheet('Productos');
       const producto = productos.find(p => p.producto_id == productoId);
@@ -353,7 +366,7 @@ bot.on('callback_query', async (ctx) => {
       const productoId = parseInt(parts[1]);
       const cantidad = parseInt(parts[2]);
       
-      console.log(`📦 Agregando al carrito: Producto ${productoId}, Cantidad ${cantidad}`);
+      console.log(`📦 Carrito: +${cantidad} producto ${productoId}`);
       
       const productos = await obtenerDatosSheet('Productos');
       const producto = productos.find(p => p.producto_id == productoId);
