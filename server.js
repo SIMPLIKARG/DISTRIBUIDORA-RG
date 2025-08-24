@@ -558,7 +558,7 @@ bot.on('callback_query', async (ctx) => {
       let total = 0;
       
       cart.forEach((item, index) => {
-        mensaje += `${index + 1}. ${item.producto_nombre}\n`;
+        mensaje += `${index + 1}. *${item.producto_nombre}*\n`;
         mensaje += `   📦 Cantidad: ${item.cantidad}\n`;
         mensaje += `   💰 $${item.precio_unitario.toLocaleString()} c/u = $${item.importe.toLocaleString()}\n\n`;
         total += item.importe;
@@ -566,15 +566,93 @@ bot.on('callback_query', async (ctx) => {
       
       mensaje += `💰 *Total: $${total.toLocaleString()}*`;
       
+      // Crear botones para eliminar productos individuales
+      const keyboard = [];
+      
+      // Agregar botón de eliminar para cada producto (máximo 5 por fila)
+      if (cart.length <= 10) { // Solo mostrar botones individuales si hay pocos productos
+        cart.forEach((item, index) => {
+          keyboard.push([{
+            text: `🗑️ Eliminar: ${item.producto_nombre.substring(0, 25)}${item.producto_nombre.length > 25 ? '...' : ''}`,
+            callback_data: `eliminar_item_${index}`
+          }]);
+        });
+        
+        // Separador visual
+        keyboard.push([{ text: '── ACCIONES ──', callback_data: 'separator' }]);
+      }
+      
+      // Botones principales
+      keyboard.push([{ text: '➕ Seguir comprando', callback_data: 'seguir_comprando' }]);
+      keyboard.push([{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]);
+      keyboard.push([{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }]);
+      
       await ctx.reply(mensaje, {
         parse_mode: 'Markdown',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '➕ Seguir comprando', callback_data: 'seguir_comprando' }],
-            [{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }],
-            [{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }]
-          ]
-        }
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
+    } else if (callbackData.startsWith('eliminar_item_')) {
+      const itemIndex = parseInt(callbackData.split('_')[2]);
+      const cart = getUserCart(userId);
+      
+      if (itemIndex < 0 || itemIndex >= cart.length) {
+        await ctx.reply('❌ Producto no encontrado en el carrito');
+        return;
+      }
+      
+      const itemEliminado = cart[itemIndex];
+      console.log(`🗑️ ${userName} elimina: ${itemEliminado.producto_nombre}`);
+      
+      // Eliminar el producto del carrito
+      cart.splice(itemIndex, 1);
+      setUserCart(userId, cart);
+      
+      if (cart.length === 0) {
+        await ctx.editMessageText('🗑️ Producto eliminado. Tu carrito está vacío.', {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🛍️ Empezar a comprar', callback_data: 'seguir_comprando' }]
+            ]
+          }
+        });
+        return;
+      }
+      
+      // Mostrar carrito actualizado
+      let mensaje = '✅ Producto eliminado\n\n🛒 *Tu carrito actualizado:*\n\n';
+      let total = 0;
+      
+      cart.forEach((item, index) => {
+        mensaje += `${index + 1}. *${item.producto_nombre}*\n`;
+        mensaje += `   📦 Cantidad: ${item.cantidad}\n`;
+        mensaje += `   💰 $${item.precio_unitario.toLocaleString()} c/u = $${item.importe.toLocaleString()}\n\n`;
+        total += item.importe;
+      });
+      
+      mensaje += `💰 *Total: $${total.toLocaleString()}*`;
+      
+      // Crear botones actualizados
+      const keyboard = [];
+      
+      if (cart.length <= 10) {
+        cart.forEach((item, index) => {
+          keyboard.push([{
+            text: `🗑️ Eliminar: ${item.producto_nombre.substring(0, 25)}${item.producto_nombre.length > 25 ? '...' : ''}`,
+            callback_data: `eliminar_item_${index}`
+          }]);
+        });
+        
+        keyboard.push([{ text: '── ACCIONES ──', callback_data: 'separator' }]);
+      }
+      
+      keyboard.push([{ text: '➕ Seguir comprando', callback_data: 'seguir_comprando' }]);
+      keyboard.push([{ text: '✅ Finalizar pedido', callback_data: 'finalizar_pedido' }]);
+      keyboard.push([{ text: '🗑️ Vaciar carrito', callback_data: 'vaciar_carrito' }]);
+      
+      await ctx.editMessageText(mensaje, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: keyboard }
       });
       
     } else if (callbackData === 'finalizar_pedido') {
