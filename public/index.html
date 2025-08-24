@@ -246,6 +246,47 @@
             transform: rotate(180deg);
         }
 
+        .estado-selector {
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .estado-selector:hover {
+            border-color: #007bff;
+        }
+
+        .estado-selector:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+
+        .total-destacado {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #28a745;
+        }
+
+        .acciones-pedido {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .loading-estado {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-style: italic;
+        }
+
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -266,6 +307,11 @@
             .detalles-table th,
             .detalles-table td {
                 padding: 8px 6px;
+            }
+            
+            .acciones-pedido {
+                flex-direction: column;
+                align-items: stretch;
             }
         }
     </style>
@@ -323,6 +369,74 @@
             }
         }
 
+        async function actualizarEstadoPedido(pedidoId, nuevoEstado) {
+            const selector = document.getElementById(`estado-${pedidoId}`);
+            const loading = document.getElementById(`loading-${pedidoId}`);
+            const estadoActual = selector.dataset.estadoActual;
+            
+            // Si no cambió el estado, no hacer nada
+            if (nuevoEstado === estadoActual) {
+                return;
+            }
+            
+            console.log(`🔄 Actualizando pedido ${pedidoId} de ${estadoActual} a ${nuevoEstado}`);
+            
+            // Mostrar loading
+            loading.style.display = 'inline';
+            selector.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/pedidos/${pedidoId}/estado`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ estado: nuevoEstado })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    console.log(`✅ Estado actualizado: ${result.message}`);
+                    
+                    // Actualizar el dataset para futuras comparaciones
+                    selector.dataset.estadoActual = nuevoEstado;
+                    
+                    // Mostrar mensaje de éxito temporal
+                    loading.textContent = '✅ Actualizado';
+                    loading.style.color = '#28a745';
+                    
+                    // Recargar datos después de 1 segundo para reflejar cambios
+                    setTimeout(() => {
+                        cargarDatos();
+                    }, 1000);
+                    
+                } else {
+                    throw new Error(result.error || 'Error desconocido');
+                }
+                
+            } catch (error) {
+                console.error('❌ Error actualizando estado:', error);
+                
+                // Revertir selector al estado anterior
+                selector.value = estadoActual;
+                
+                // Mostrar error
+                loading.textContent = '❌ Error';
+                loading.style.color = '#dc3545';
+                
+                alert(`Error al actualizar el estado: ${error.message}`);
+                
+            } finally {
+                // Ocultar loading después de 3 segundos
+                setTimeout(() => {
+                    loading.style.display = 'none';
+                    loading.textContent = 'Actualizando...';
+                    loading.style.color = '#6c757d';
+                    selector.disabled = false;
+                }, 3000);
+            }
+        }
         function mostrarPedidos(pedidos) {
             console.log('📋 Mostrando', pedidos.length, 'pedidos');
             
@@ -338,7 +452,14 @@
             pedidos.forEach(pedido => {
                 const estadoClass = `estado-${(pedido.estado || 'pendiente').toLowerCase()}`;
                 const fechaFormateada = formatearFecha(pedido.fecha_hora);
-                const totalFormateado = formatearPrecio(pedido.total || 0);
+                
+                // Usar total calculado si existe, sino el total del pedido
+                const totalMostrar = pedido.total_calculado || pedido.total || 0;
+                const totalFormateado = formatearPrecio(totalMostrar);
+                
+                // Verificar si hay discrepancia entre totales
+                const hayDiscrepancia = pedido.total && pedido.total_calculado && 
+                    Math.abs(parseFloat(pedido.total) - parseFloat(pedido.total_calculado)) > 0.01;
                 
                 html += `
                     <details class="pedido-card">
@@ -362,7 +483,8 @@
                                 </div>
                                 <div class="pedido-field">
                                     <span class="pedido-label">Total</span>
-                                    <span class="pedido-value precio">$${totalFormateado}</span>
+                                    <span class="pedido-value precio total-destacado">$${totalFormateado}</span>
+                                    ${hayDiscrepancia ? '<br><small style="color: #dc3545;">⚠️ Total recalculado</small>' : ''}
                                 </div>
                                 <div class="pedido-field">
                                     <span class="pedido-label">Estado</span>
@@ -374,6 +496,18 @@
                         
                         <div class="detalles-container">
                             ${pedido.observaciones ? `<div class="observacion">📝 ${pedido.observaciones}</div>` : ''}
+                            
+                            <div class="acciones-pedido">
+                                <label for="estado-${pedido.pedido_id}"><strong>Cambiar estado:</strong></label>
+                                <select id="estado-${pedido.pedido_id}" class="estado-selector" 
+                                        onchange="actualizarEstadoPedido('${pedido.pedido_id}', this.value)"
+                                        data-estado-actual="${pedido.estado || 'PENDIENTE'}">
+                                    <option value="PENDIENTE" ${(pedido.estado || 'PENDIENTE') === 'PENDIENTE' ? 'selected' : ''}>⏳ PENDIENTE</option>
+                                    <option value="CONFIRMADO" ${pedido.estado === 'CONFIRMADO' ? 'selected' : ''}>✅ CONFIRMADO</option>
+                                    <option value="CANCELADO" ${pedido.estado === 'CANCELADO' ? 'selected' : ''}>❌ CANCELADO</option>
+                                </select>
+                                <span id="loading-${pedido.pedido_id}" class="loading-estado" style="display: none;">Actualizando...</span>
+                            </div>
                             
                             ${pedido.detalles && pedido.detalles.length > 0 ? `
                                 <table class="detalles-table">

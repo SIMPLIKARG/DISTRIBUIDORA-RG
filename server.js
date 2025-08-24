@@ -1009,8 +1009,19 @@ app.get('/api/pedidos-completos', async (req, res) => {
         detalle.pedido_id === pedidoId
       );
       
+      // Calcular total desde los detalles si no existe o es incorrecto
+      const totalCalculado = detallesPedido.reduce((sum, detalle) => {
+        const importe = parseFloat(detalle.importe) || 0;
+        return sum + importe;
+      }, 0);
+      
+      // Usar el total calculado si el total del pedido no existe o es 0
+      const totalFinal = parseFloat(pedido.total) || totalCalculado;
+      
       return {
         ...pedido,
+        total: totalFinal,
+        total_calculado: totalCalculado,
         detalles: detallesPedido,
         cantidad_items: detallesPedido.length
       };
@@ -1035,6 +1046,114 @@ app.get('/api/pedidos-completos', async (req, res) => {
   } catch (error) {
     console.error('❌ Error obteniendo pedidos completos:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Endpoint para actualizar estado del pedido
+app.put('/api/pedidos/:pedidoId/estado', async (req, res) => {
+  try {
+    const { pedidoId } = req.params;
+    const { estado } = req.body;
+    
+    console.log(`🔄 Actualizando pedido ${pedidoId} a estado: ${estado}`);
+    
+    if (!pedidoId || !estado) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'pedidoId y estado son requeridos' 
+      });
+    }
+    
+    // Validar estados permitidos
+    const estadosPermitidos = ['PENDIENTE', 'CONFIRMADO', 'CANCELADO'];
+    if (!estadosPermitidos.includes(estado.toUpperCase())) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Estado no válido. Debe ser: PENDIENTE, CONFIRMADO o CANCELADO' 
+      });
+    }
+    
+    if (!SPREADSHEET_ID) {
+      console.log(`⚠️ Google Sheets no configurado, simulando actualización`);
+      return res.json({ 
+        success: true, 
+        message: `Estado simulado actualizado a ${estado}`,
+        pedido_id: pedidoId,
+        nuevo_estado: estado
+      });
+    }
+    
+    // Obtener todos los pedidos
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: 'Pedidos!A:Z',
+    });
+    
+    const rows = response.data.values || [];
+    if (rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'No se encontraron pedidos' 
+      });
+    }
+    
+    const headers = rows[0];
+    const estadoColumnIndex = headers.findIndex(header => 
+      header.toLowerCase() === 'estado'
+    );
+    
+    if (estadoColumnIndex === -1) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Columna estado no encontrada' 
+      });
+    }
+    
+    // Buscar la fila del pedido
+    let filaEncontrada = -1;
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] === pedidoId) { // Asumiendo que pedido_id está en columna A
+        filaEncontrada = i;
+        break;
+      }
+    }
+    
+    if (filaEncontrada === -1) {
+      return res.status(404).json({ 
+        success: false, 
+        error: `Pedido ${pedidoId} no encontrado` 
+      });
+    }
+    
+    // Actualizar el estado en Google Sheets
+    const estadoColumn = String.fromCharCode(65 + estadoColumnIndex); // A=65, B=66, etc.
+    const range = `Pedidos!${estadoColumn}${filaEncontrada + 1}`;
+    
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: range,
+      valueInputOption: 'RAW',
+      requestBody: {
+        values: [[estado.toUpperCase()]]
+      }
+    });
+    
+    console.log(`✅ Pedido ${pedidoId} actualizado a ${estado}`);
+    
+    res.json({ 
+      success: true, 
+      message: `Estado actualizado exitosamente`,
+      pedido_id: pedidoId,
+      nuevo_estado: estado.toUpperCase(),
+      fila_actualizada: filaEncontrada + 1
+    });
+    
+  } catch (error) {
+    console.error('❌ Error actualizando estado:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 
