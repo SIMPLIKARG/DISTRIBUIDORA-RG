@@ -288,230 +288,12 @@ bot.on('callback_query', async (ctx) => {
       const keyboard = [];
       
       // Opción de búsqueda al inicio
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
       keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
+      
+      // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
-      // Agregar cada localidad UNA SOLA VEZ
+      // Agregar cada localidad
       localidades.forEach(localidad => {
         const cantidadClientes = clientesAgrupados[localidad].length;
         keyboard.push([{
@@ -521,35 +303,6 @@ bot.on('callback_query', async (ctx) => {
       });
       
       await ctx.editMessageText('👤 Selecciona el cliente:', {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      
-    } else if (callbackData === 'seguir_comprando') {
-      const userState = getUserState(userId);
-      const cliente = userState.cliente;
-      const cart = getUserCart(userId);
-      
-      if (!cliente) {
-        return bot.handleUpdate({
-          callback_query: { ...ctx.callbackQuery, data: 'hacer_pedido' }
-        });
-      }
-      
-      console.log(`🛒 ${userName} sigue comprando para ${cliente.nombre}`);
-      
-      const categorias = await obtenerDatosSheet('Categorias');
-      
-      const keyboard = categorias.map(cat => [{
-        text: `📂 ${cat.categoria_nombre || cat.Categoria_nombre || 'Categoría'}`,
-        callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
-      }]);
-      
-      keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
-      keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
-      
-      const cartInfo = cart.length > 0 ? ` (${cart.length} productos)` : '';
-      
-      await ctx.editMessageText(`✅ Cliente: ${cliente.nombre}${cartInfo}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
       
@@ -574,7 +327,8 @@ bot.on('callback_query', async (ctx) => {
       const nombreCliente = cliente.nombre || cliente.Nombre || 'Cliente';
       const clienteNormalizado = {
         ...cliente,
-        nombre: nombreCliente
+        nombre: nombreCliente,
+        cliente_id: cliente.cliente_id || cliente.Cliente_id || cliente.id
       };
       
       setUserState(userId, { 
@@ -590,7 +344,6 @@ bot.on('callback_query', async (ctx) => {
         callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
       }]);
       
-      keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
       await ctx.editMessageText(`✅ Cliente: ${nombreCliente}\n\n📂 Selecciona una categoría:`, {
@@ -965,16 +718,9 @@ bot.on('text', async (ctx) => {
         text: `🛍️ ${producto.producto_nombre}`,
         callback_data: `producto_${producto.producto_id}`
       }]);
-      keyboard.push([{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]);
-      const botonesBusquedaExitosa = categoriaId ? [
-        [{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }],
-        [{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]
-      ] : [
-        [{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_producto_general' }],
-        [{ text: '📂 Ver categorías', callback_data: 'seguir_comprando' }]
-      ];
       
-      keyboard.push(...botonesBusquedaExitosa);
+      keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }]);
+      keyboard.push([{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]);
       
       await ctx.reply(`🔍 Encontrados ${productosFiltrados.length} producto(s):`, {
         reply_markup: { inline_keyboard: keyboard }
