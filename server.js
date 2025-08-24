@@ -148,7 +148,7 @@ async function obtenerDatosSheet(nombreHoja) {
 async function agregarDatosSheet(nombreHoja, datos) {
   try {
     if (!SPREADSHEET_ID) {
-      console.log(`⚠️ Google Sheets no configurado, simulando guardado`);
+      console.log(`⚠️ Google Sheets no configurado, simulando inserción en ${nombreHoja}`);
       return true;
     }
 
@@ -288,7 +288,27 @@ bot.on('callback_query', async (ctx) => {
       const keyboard = [];
       
       // Opción de búsqueda al inicio
-      keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
       
       // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
@@ -301,6 +321,41 @@ bot.on('callback_query', async (ctx) => {
           callback_data: `localidad_${localidad}`
         }]);
       });
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
       await ctx.editMessageText('👤 Selecciona el cliente:', {
         reply_markup: { inline_keyboard: keyboard }
@@ -337,47 +392,34 @@ bot.on('callback_query', async (ctx) => {
         reply_markup: { inline_keyboard: keyboard }
       });
       
-    } else if (callbackData.startsWith('localidad_')) {
-      const localidad = callbackData.split('_')[1];
-      console.log(`📍 Localidad: ${localidad}`);
-      
-      const clientes = await obtenerDatosSheet('Clientes');
-      const clientesLocalidad = clientes.filter(c => (c.localidad || 'Sin localidad') === localidad);
-      
-      const keyboard = clientesLocalidad.map(cliente => {
-        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
-        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
-        
-        return [{
-          text: `👤 ${nombreCliente}`,
-          callback_data: `cliente_${clienteId}`
-        }];
-      });
-      
-      keyboard.push([{ text: '🔙 Volver a localidades', callback_data: 'hacer_pedido' }]);
-      
-      await ctx.editMessageText(`📍 Clientes en ${localidad}:`, {
-        reply_markup: { inline_keyboard: keyboard }
-      });
-      
     } else if (callbackData.startsWith('cliente_')) {
       const clienteId = parseInt(callbackData.split('_')[1]);
       console.log(`👤 Cliente: ${clienteId}`);
       
       const clientes = await obtenerDatosSheet('Clientes');
-      const cliente = clientes.find(c => (c.cliente_id || c.Cliente_id || c.id) == clienteId);
+      const cliente = clientes.find(c => 
+        (c.cliente_id == clienteId) || 
+        (c.Cliente_id == clienteId) || 
+        (c.id == clienteId)
+      );
+      
       
       if (!cliente) {
         await ctx.reply('❌ Cliente no encontrado');
         return;
       }
       
-      const pedidoId = await generarPedidoId();
+      // Normalizar nombre del cliente
+      const nombreCliente = cliente.nombre || cliente.Nombre || 'Cliente';
+      const clienteNormalizado = {
+        ...cliente,
+        nombre: nombreCliente
+      };
       
-      setUserState(userId, {
-        step: 'seleccionar_categoria',
-        cliente: cliente,
-        pedido_id: pedidoId
+      setUserState(userId, { 
+        step: 'seleccionar_categoria', 
+        cliente: clienteNormalizado,
+        pedido_id: await generarPedidoId()
       });
       
       const categorias = await obtenerDatosSheet('Categorias');
@@ -390,11 +432,44 @@ bot.on('callback_query', async (ctx) => {
       keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
-      const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${clienteId}`;
-      
-      await ctx.editMessageText(`✅ Cliente: ${nombreCliente}\n📋 Pedido: ${pedidoId}\n\n📂 Selecciona una categoría:`, {
+      await ctx.editMessageText(`✅ Cliente: ${nombreCliente}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
+      
+    } else if (callbackData.startsWith('localidad_')) {
+      const localidad = decodeURIComponent(callbackData.split('_')[1]);
+      console.log(`📍 Localidad seleccionada: ${localidad}`);
+      
+      const clientes = await obtenerDatosSheet('Clientes');
+      const clientesLocalidad = clientes.filter(cliente => 
+        (cliente.localidad || 'Sin localidad') === localidad
+      );
+      
+      if (clientesLocalidad.length === 0) {
+        await ctx.reply('❌ No hay clientes en esta localidad');
+        return;
+      }
+      
+      const keyboard = clientesLocalidad.map(cliente => {
+        const nombreCliente = cliente.nombre || cliente.Nombre || `Cliente ${cliente.cliente_id}`;
+        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
+        
+        return [{
+          text: `👤 ${nombreCliente}`,
+          callback_data: `cliente_${clienteId}`
+        }];
+      });
+      
+      // Botón para volver a localidades
+      keyboard.push([{ text: '🔙 Volver a localidades', callback_data: 'hacer_pedido' }]);
+      
+      await ctx.editMessageText(`📍 ${localidad} - Selecciona el cliente:`, {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
+    } else if (callbackData === 'separator') {
+      // No hacer nada, es solo visual
+      return;
       
     } else if (callbackData.startsWith('categoria_')) {
       const categoriaId = parseInt(callbackData.split('_')[1]);
