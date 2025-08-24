@@ -17,7 +17,9 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "googleapis": "^128.0.0",
-    "google-auth-library": "^9.4.1"
+    "google-auth-library": "^9.4.1",
+    "google-spreadsheet": "^4.1.2",
+    "telegraf": "^4.16.3"
   },
   "engines": {
     "node": ">=18.0.0",
