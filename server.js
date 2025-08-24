@@ -175,7 +175,7 @@ bot.command('ayuda', async (ctx) => {
     `1. Presiona "Hacer pedido"\n` +
     `2. Selecciona tu cliente\n` +
     `3. Elige categorías y productos\n` +
-    `4. Agrega observaciones si necesitas\n` +
+    `4. Agrega al carrito\n` +
     `5. Confirma tu pedido`;
   
   await ctx.reply(mensaje, { parse_mode: 'Markdown' });
@@ -265,10 +265,7 @@ bot.on('callback_query', async (ctx) => {
         callback_data: `producto_${producto.producto_id}`
       }]);
       
-      keyboard.push([
-        { text: '🔍 Nueva búsqueda', callback_data: 'buscar_producto' },
-        { text: '📂 Ver categorías', callback_data: 'hacer_pedido' }
-      ]);
+      keyboard.push([{ text: '📂 Ver categorías', callback_data: 'hacer_pedido' }]);
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
       await ctx.editMessageText(`📂 Categoría: ${nombreCategoria}\n\n🛍️ Selecciona un producto:`, {
@@ -412,35 +409,7 @@ bot.on('callback_query', async (ctx) => {
         return;
       }
       
-      setUserState(userId, { 
-        ...getUserState(userId), 
-        step: 'esperando_observaciones' 
-      });
-      
-      await ctx.editMessageText(
-        '📝 ¿Quieres agregar alguna observación al pedido?\n\n' +
-        '💡 Puedes escribir observaciones generales o específicas para productos.\n\n' +
-        '⏭️ Si no necesitas observaciones, presiona "Sin observaciones"',
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '📝 Escribir observaciones', callback_data: 'escribir_observaciones' }],
-              [{ text: '⏭️ Sin observaciones', callback_data: 'confirmar_pedido_sin_obs' }]
-            ]
-          }
-        }
-      );
-      
-    } else if (callbackData === 'escribir_observaciones') {
-      setUserState(userId, { 
-        ...getUserState(userId), 
-        step: 'escribiendo_observaciones' 
-      });
-      
-      await ctx.editMessageText('📝 Escribe tus observaciones para el pedido:');
-      
-    } else if (callbackData === 'confirmar_pedido_sin_obs') {
-      await confirmarPedido(ctx, userId, '');
+      await confirmarPedido(ctx, userId);
       
     } else if (callbackData === 'vaciar_carrito') {
       setUserCart(userId, []);
@@ -516,11 +485,6 @@ bot.on('text', async (ctx) => {
         }
       );
       
-    } else if (userState.step === 'escribiendo_observaciones') {
-      console.log(`📝 Observaciones recibidas de ${userName}: "${text}"`);
-      
-      await confirmarPedido(ctx, userId, text);
-      
     } else {
       // Mensaje no reconocido
       await ctx.reply(
@@ -542,7 +506,7 @@ bot.on('text', async (ctx) => {
 });
 
 // Función para confirmar pedido
-async function confirmarPedido(ctx, userId, observaciones) {
+async function confirmarPedido(ctx, userId) {
   try {
     const userState = getUserState(userId);
     const cart = getUserCart(userId);
@@ -595,8 +559,7 @@ async function confirmarPedido(ctx, userId, observaciones) {
         item.categoria_id,
         item.cantidad,
         item.precio_unitario,
-        item.importe,
-        observaciones || '' // Agregar observaciones aquí
+        item.importe
       ];
       
       await agregarDatosSheet('DetallePedidos', detalleData);
@@ -613,11 +576,6 @@ async function confirmarPedido(ctx, userId, observaciones) {
     mensaje += `📅 Fecha: ${fechaHora}\n`;
     mensaje += `📦 Items: ${itemsTotal}\n`;
     mensaje += `💰 Total: $${montoTotal.toLocaleString()}\n\n`;
-    
-    if (observaciones) {
-      mensaje += `📝 Observaciones: ${observaciones}\n\n`;
-    }
-    
     mensaje += `🎉 ¡Gracias por tu pedido!`;
     
     await ctx.reply(mensaje, {
@@ -669,8 +627,7 @@ app.get('/api/info', (req, res) => {
       'Bot de Telegram',
       'Integración Google Sheets',
       'Sistema de pedidos',
-      'Carrito de compras',
-      'Observaciones en pedidos'
+      'Carrito de compras'
     ]
   });
 });
