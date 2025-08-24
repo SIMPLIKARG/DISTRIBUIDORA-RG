@@ -990,6 +990,54 @@ app.get('/api/detalles-pedidos', async (req, res) => {
   }
 });
 
+app.get('/api/pedidos-completos', async (req, res) => {
+  try {
+    console.log('📊 Obteniendo pedidos completos...');
+    
+    // Obtener datos de ambas hojas
+    const pedidos = await obtenerDatosSheet('Pedidos');
+    const detalles = await obtenerDatosSheet('DetallePedidos');
+    
+    console.log(`📋 Pedidos: ${pedidos.length}, Detalles: ${detalles.length}`);
+    
+    // Combinar pedidos con sus detalles
+    const pedidosCompletos = pedidos.map(pedido => {
+      const pedidoId = pedido.pedido_id;
+      
+      // Encontrar todos los detalles de este pedido
+      const detallesPedido = detalles.filter(detalle => 
+        detalle.pedido_id === pedidoId
+      );
+      
+      return {
+        ...pedido,
+        detalles: detallesPedido,
+        cantidad_items: detallesPedido.length
+      };
+    });
+    
+    // Ordenar por fecha más reciente primero
+    pedidosCompletos.sort((a, b) => {
+      const fechaA = new Date(a.fecha_hora || 0);
+      const fechaB = new Date(b.fecha_hora || 0);
+      return fechaB - fechaA;
+    });
+    
+    console.log(`✅ ${pedidosCompletos.length} pedidos completos procesados`);
+    
+    res.json({ 
+      success: true, 
+      pedidos: pedidosCompletos,
+      total_pedidos: pedidosCompletos.length,
+      total_detalles: detalles.length
+    });
+    
+  } catch (error) {
+    console.error('❌ Error obteniendo pedidos completos:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor iniciado en puerto ${PORT}`);

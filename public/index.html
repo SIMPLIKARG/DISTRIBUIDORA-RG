@@ -148,6 +148,104 @@
             color: #9b59b6;
         }
 
+        .pedido-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .pedido-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .pedido-header:hover {
+            background: #e9ecef;
+        }
+
+        .pedido-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            align-items: center;
+        }
+
+        .pedido-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pedido-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .pedido-value {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .estado-confirmado {
+            color: #28a745;
+        }
+
+        .estado-pendiente {
+            color: #ffc107;
+        }
+
+        .estado-borrador {
+            color: #6c757d;
+        }
+
+        .detalles-container {
+            padding: 0;
+        }
+
+        .detalles-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .detalles-table th {
+            background: #495057;
+            color: white;
+            padding: 10px 8px;
+            font-size: 0.8rem;
+        }
+
+        .detalles-table td {
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .detalles-table tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .observacion {
+            background: #fff3cd;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-style: italic;
+            color: #856404;
+            margin-top: 5px;
+        }
+
+        .expand-icon {
+            float: right;
+            transition: transform 0.3s ease;
+        }
+
+        .pedido-card[open] .expand-icon {
+            transform: rotate(180deg);
+        }
+
         @media (max-width: 768px) {
             body {
                 padding: 10px;
@@ -157,11 +255,16 @@
                 font-size: 2rem;
             }
             
-            table {
+            .pedido-info {
+                grid-template-columns: 1fr;
+            }
+            
+            .detalles-table {
                 font-size: 0.8rem;
             }
             
-            th, td {
+            .detalles-table th,
+            .detalles-table td {
                 padding: 8px 6px;
             }
         }
@@ -171,13 +274,13 @@
     <div class="container">
         <div class="header">
             <h1>📋 Dashboard Distribuidora</h1>
-            <p>Detalle de Pedidos - Sistema completo</p>
+            <p>Pedidos Completos - Vista por Pedido</p>
             <button class="btn" onclick="cargarDatos()">🔄 Cargar Datos</button>
         </div>
 
         <div class="table-container">
             <div class="table-header">
-                <h2>📊 DetallePedidos</h2>
+                <h2>📊 Pedidos Completos</h2>
             </div>
             <div class="table-content" id="contenidoTabla">
                 <div class="loading">Presiona "Cargar Datos" para comenzar</div>
@@ -187,15 +290,15 @@
 
     <script>
         async function cargarDatos() {
-            console.log('🔄 Iniciando carga de datos...');
+            console.log('🔄 Iniciando carga de pedidos completos...');
             
             // Mostrar loading
             document.getElementById('contenidoTabla').innerHTML = `
-                <div class="loading">🔄 Cargando datos de DetallePedidos...</div>
+                <div class="loading">🔄 Cargando pedidos completos...</div>
             `;
             
             try {
-                const respuesta = await fetch('/api/detalles-pedidos');
+                const respuesta = await fetch('/api/pedidos-completos');
                 console.log('📡 Respuesta del servidor:', respuesta.status);
                 
                 if (!respuesta.ok) {
@@ -205,11 +308,11 @@
                 const datos = await respuesta.json();
                 console.log('📊 Datos recibidos:', datos);
                 
-                // Asegurar que detalles sea siempre un array
-                const detalles = Array.isArray(datos.detalles) ? datos.detalles : [];
+                // Asegurar que pedidos sea siempre un array
+                const pedidos = Array.isArray(datos.pedidos) ? datos.pedidos : [];
                 
                 if (datos.success) {
-                    mostrarTabla(detalles);
+                    mostrarPedidos(pedidos);
                 } else {
                     throw new Error(datos.error || 'No se encontraron datos válidos');
                 }
@@ -220,53 +323,89 @@
             }
         }
 
-        function mostrarTabla(detalles) {
-            console.log('📋 Mostrando tabla con', detalles.length, 'registros');
+        function mostrarPedidos(pedidos) {
+            console.log('📋 Mostrando', pedidos.length, 'pedidos');
             
-            if (!detalles || detalles.length === 0) {
+            if (!pedidos || pedidos.length === 0) {
                 document.getElementById('contenidoTabla').innerHTML = `
-                    <div class="loading">📭 No hay datos disponibles</div>
+                    <div class="loading">📭 No hay pedidos disponibles</div>
                 `;
                 return;
             }
 
-            const html = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Detalle ID</th>
-                            <th>Pedido ID</th>
-                            <th>Producto ID</th>
-                            <th>Producto</th>
-                            <th>Categoría</th>
-                            <th>Cantidad</th>
-                            <th>Precio Unit.</th>
-                            <th>Importe</th>
-                            <th>Cliente</th>
-                            <th>Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${detalles.map(detalle => `
-                            <tr>
-                                <td class="detalle-id">${detalle.detalle_id || '-'}</td>
-                                <td class="pedido-id">${detalle.pedido_id || '-'}</td>
-                                <td class="cantidad">${detalle.producto_id || '-'}</td>
-                                <td>${detalle.producto_nombre || '-'}</td>
-                                <td class="cantidad">${detalle.categoria_id || '-'}</td>
-                                <td class="cantidad">${detalle.cantidad || 0}</td>
-                                <td class="precio">$${formatearPrecio(detalle.precio_unitario || 0)}</td>
-                                <td class="precio">$${formatearPrecio(detalle.importe || 0)}</td>
-                                <td>${detalle.nombre || '-'}</td>
-                                <td>${detalle.fecha_hora || '-'}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
+            let html = '<div style="padding: 20px;">';
+            
+            pedidos.forEach(pedido => {
+                const estadoClass = `estado-${(pedido.estado || 'pendiente').toLowerCase()}`;
+                const fechaFormateada = formatearFecha(pedido.fecha_hora);
+                const totalFormateado = formatearPrecio(pedido.total || 0);
+                
+                html += `
+                    <details class="pedido-card">
+                        <summary class="pedido-header">
+                            <div class="pedido-info">
+                                <div class="pedido-field">
+                                    <span class="pedido-label">Pedido ID</span>
+                                    <span class="pedido-value pedido-id">${pedido.pedido_id || '-'}</span>
+                                </div>
+                                <div class="pedido-field">
+                                    <span class="pedido-label">Cliente</span>
+                                    <span class="pedido-value">${pedido.cliente_nombre || '-'}</span>
+                                </div>
+                                <div class="pedido-field">
+                                    <span class="pedido-label">Fecha</span>
+                                    <span class="pedido-value">${fechaFormateada}</span>
+                                </div>
+                                <div class="pedido-field">
+                                    <span class="pedido-label">Items</span>
+                                    <span class="pedido-value cantidad">${pedido.items_cantidad || pedido.detalles?.length || 0}</span>
+                                </div>
+                                <div class="pedido-field">
+                                    <span class="pedido-label">Total</span>
+                                    <span class="pedido-value precio">$${totalFormateado}</span>
+                                </div>
+                                <div class="pedido-field">
+                                    <span class="pedido-label">Estado</span>
+                                    <span class="pedido-value ${estadoClass}">${pedido.estado || 'PENDIENTE'}</span>
+                                </div>
+                            </div>
+                            <span class="expand-icon">▼</span>
+                        </summary>
+                        
+                        <div class="detalles-container">
+                            ${pedido.observaciones ? `<div class="observacion">📝 ${pedido.observaciones}</div>` : ''}
+                            
+                            ${pedido.detalles && pedido.detalles.length > 0 ? `
+                                <table class="detalles-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio Unit.</th>
+                                            <th>Importe</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${pedido.detalles.map(detalle => `
+                                            <tr>
+                                                <td>${detalle.producto_nombre || '-'}</td>
+                                                <td class="cantidad">${detalle.cantidad || 0}</td>
+                                                <td class="precio">$${formatearPrecio(detalle.precio_unitario || 0)}</td>
+                                                <td class="precio">$${formatearPrecio(detalle.importe || 0)}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            ` : '<p style="padding: 20px; text-align: center; color: #6c757d;">No hay detalles disponibles</p>'}
+                        </div>
+                    </details>
+                `;
+            });
+            
+            html += '</div>';
 
             document.getElementById('contenidoTabla').innerHTML = html;
-            console.log('✅ Tabla mostrada exitosamente');
+            console.log('✅ Pedidos mostrados exitosamente');
         }
 
         function mostrarError(mensaje) {
@@ -281,6 +420,23 @@
 
         function formatearPrecio(precio) {
             return new Intl.NumberFormat('es-AR').format(precio);
+        }
+
+        function formatearFecha(fechaHora) {
+            if (!fechaHora) return '-';
+            
+            try {
+                const fecha = new Date(fechaHora);
+                return fecha.toLocaleString('es-AR', {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                return fechaHora;
+            }
         }
     </script>
 </body>
