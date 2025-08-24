@@ -849,14 +849,7 @@ async function confirmarPedido(ctx, userId, observacion = '') {
     const montoTotal = cart.reduce((sum, item) => sum + item.importe, 0);
     
     // Crear pedido en Google Sheets
-    const fechaHora = new Date().toLocaleString('es-AR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    const fechaHora = new Date().toISOString();
     
     const pedidoData = [
       pedidoId,

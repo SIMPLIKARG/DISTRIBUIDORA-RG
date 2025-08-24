@@ -43,6 +43,38 @@
         .header p {
             color: #7f8c8d;
             font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .tabs-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            background: white;
+            color: #3498db;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn:hover {
+            background: #3498db;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .tab-btn.active {
+            background: #3498db;
+            color: white;
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
         }
 
         .table-container {
@@ -320,13 +352,22 @@
     <div class="container">
         <div class="header">
             <h1>📋 Dashboard Distribuidora</h1>
-            <p>Pedidos Completos - Vista por Pedido</p>
+            <p>Sistema de gestión de pedidos</p>
             <button class="btn" onclick="cargarDatos()">🔄 Cargar Datos</button>
+            
+            <div class="tabs-container">
+                <button class="tab-btn active" id="tab-all" onclick="showPedidos('all')">
+                    📋 Todos los Pedidos
+                </button>
+                <button class="tab-btn" id="tab-pending" onclick="showPedidos('pending')">
+                    ⏳ Pedidos Pendientes
+                </button>
+            </div>
         </div>
 
         <div class="table-container">
-            <div class="table-header">
-                <h2>📊 Pedidos Completos</h2>
+            <div class="table-header" id="tableHeader">
+                <h2>📊 Todos los Pedidos</h2>
             </div>
             <div class="table-content" id="contenidoTabla">
                 <div class="loading">Presiona "Cargar Datos" para comenzar</div>
@@ -335,6 +376,10 @@
     </div>
 
     <script>
+        // Variable global para almacenar todos los pedidos
+        let allPedidos = [];
+        let currentFilter = 'all';
+
         async function cargarDatos() {
             console.log('🔄 Iniciando carga de pedidos completos...');
             
@@ -358,7 +403,10 @@
                 const pedidos = Array.isArray(datos.pedidos) ? datos.pedidos : [];
                 
                 if (datos.success) {
-                    mostrarPedidos(pedidos);
+                    // Almacenar todos los pedidos globalmente
+                    allPedidos = pedidos;
+                    // Mostrar según el filtro actual
+                    showPedidos(currentFilter);
                 } else {
                     throw new Error(datos.error || 'No se encontraron datos válidos');
                 }
@@ -367,6 +415,38 @@
                 console.error('❌ Error:', error);
                 mostrarError(error.message);
             }
+        }
+
+        function showPedidos(filterType) {
+            console.log(`🔍 Mostrando pedidos: ${filterType}`);
+            
+            currentFilter = filterType;
+            
+            // Actualizar pestañas activas
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${filterType}`).classList.add('active');
+            
+            // Filtrar pedidos según el tipo
+            let pedidosFiltrados = [];
+            let headerText = '';
+            
+            if (filterType === 'all') {
+                pedidosFiltrados = allPedidos;
+                headerText = '📊 Todos los Pedidos';
+            } else if (filterType === 'pending') {
+                pedidosFiltrados = allPedidos.filter(pedido => 
+                    (pedido.estado || 'PENDIENTE').toUpperCase() === 'PENDIENTE'
+                );
+                headerText = '⏳ Pedidos Pendientes';
+            }
+            
+            // Actualizar header
+            document.getElementById('tableHeader').innerHTML = `<h2>${headerText}</h2>`;
+            
+            // Mostrar pedidos filtrados
+            mostrarPedidos(pedidosFiltrados);
+            
+            console.log(`✅ Mostrando ${pedidosFiltrados.length} pedidos de ${allPedidos.length} totales`);
         }
 
         async function actualizarEstadoPedido(pedidoId, nuevoEstado) {
@@ -408,6 +488,7 @@
                     
                     // Recargar datos después de 1 segundo para reflejar cambios
                     setTimeout(() => {
+                        // Recargar datos y mantener el filtro actual
                         cargarDatos();
                     }, 1000);
                     
@@ -560,7 +641,35 @@
             if (!fechaHora) return '-';
             
             try {
-                const fecha = new Date(fechaHora);
+                // Manejar diferentes formatos de fecha
+                let fecha;
+                
+                // Si es formato ISO (2024-01-15T10:30:00.000Z)
+                if (fechaHora.includes('T') || fechaHora.includes('Z')) {
+                    fecha = new Date(fechaHora);
+                } 
+                // Si es formato local (15/01/2024 10:30:00)
+                else if (fechaHora.includes('/')) {
+                    // Convertir formato DD/MM/YYYY HH:mm:ss a formato ISO
+                    const parts = fechaHora.split(' ');
+                    const datePart = parts[0]; // DD/MM/YYYY
+                    const timePart = parts[1] || '00:00:00'; // HH:mm:ss
+                    
+                    const [day, month, year] = datePart.split('/');
+                    const isoString = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}`;
+                    fecha = new Date(isoString);
+                }
+                // Otros formatos
+                else {
+                    fecha = new Date(fechaHora);
+                }
+                
+                // Verificar si la fecha es válida
+                if (isNaN(fecha.getTime())) {
+                    console.warn('Fecha inválida:', fechaHora);
+                    return fechaHora; // Devolver el texto original si no se puede parsear
+                }
+                
                 return fecha.toLocaleString('es-AR', {
                     day: '2-digit',
                     month: '2-digit',
@@ -569,6 +678,7 @@
                     minute: '2-digit'
                 });
             } catch (error) {
+                console.warn('Error formateando fecha:', fechaHora, error);
                 return fechaHora;
             }
         }
