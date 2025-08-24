@@ -299,6 +299,28 @@ bot.on('callback_query', async (ctx) => {
           callback_data: `localidad_${localidad}`
         }]);
       });
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
       // Agregar cada localidad
@@ -367,8 +389,6 @@ bot.on('callback_query', async (ctx) => {
       const cart = getUserCart(userId);
       
       if (!cliente) {
-        console.log('⚠️ No hay cliente seleccionado, redirigiendo a hacer_pedido');
-        // Si no hay cliente, redirigir a selección de cliente
         return bot.handleUpdate({
           callback_query: { ...ctx.callbackQuery, data: 'hacer_pedido' }
         });
