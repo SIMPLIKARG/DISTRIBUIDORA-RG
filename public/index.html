@@ -353,11 +353,20 @@
                 background: white !important;
                 padding: 0 !important;
                 font-size: 12px !important;
+                color: black !important;
             }
 
             .container {
                 max-width: none !important;
                 margin: 0 !important;
+            }
+
+            /* CRÍTICO: Permitir que todo el contenido se imprima */
+            .table-content {
+                max-height: none !important;
+                overflow: visible !important;
+                overflow-y: visible !important;
+                height: auto !important;
             }
 
             /* Ocultar elementos no necesarios para impresión */
@@ -373,99 +382,133 @@
             .header {
                 background: white !important;
                 box-shadow: none !important;
-                border-bottom: 2px solid #333 !important;
+                border-bottom: 1px solid #000 !important;
                 margin-bottom: 20px !important;
-                padding: 20px 0 !important;
+                padding: 10px 0 !important;
             }
 
             .header h1 {
-                font-size: 24px !important;
+                font-size: 16px !important;
                 color: #000 !important;
-                margin-bottom: 5px !important;
+                margin-bottom: 3px !important;
+                font-weight: bold !important;
             }
 
             .header p {
                 color: #666 !important;
-                font-size: 14px !important;
+                font-size: 10px !important;
+                margin: 0 !important;
             }
 
             .table-container {
                 background: white !important;
                 box-shadow: none !important;
                 border-radius: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
 
             .table-header {
-                background: #f0f0f0 !important;
+                background: #e0e0e0 !important;
                 color: #000 !important;
-                border-bottom: 2px solid #333 !important;
-                padding: 15px !important;
+                border: 1px solid #000 !important;
+                padding: 5px !important;
+                text-align: center !important;
             }
 
             .table-header h2 {
-                font-size: 18px !important;
+                font-size: 12px !important;
                 color: #000 !important;
+                margin: 0 !important;
+                font-weight: bold !important;
             }
 
-            /* FORMATO TABLA COMPACTO - Estilos para pedidos */
+            /* FORZAR FORMATO DE TABLA COMPACTO */
             .pedido-card {
-                border: 2px solid #000 !important;
-                margin-bottom: 10px !important;
+                border: 1px solid #000 !important;
+                margin-bottom: 5px !important;
                 page-break-inside: avoid !important;
                 background: white !important;
                 border-radius: 0 !important;
                 overflow: visible !important;
+                padding: 0 !important;
             }
 
-            /* Forzar que details esté siempre abierto */
-            .pedido-card details {
-                display: block !important;
-            }
-
+            /* FORZAR EXPANSIÓN DE DETAILS */
+            .pedido-card,
+            .pedido-card details,
             .pedido-card summary {
                 display: block !important;
                 list-style: none !important;
             }
 
-            .pedido-card summary::-webkit-details-marker {
+            .pedido-card details[open] summary ~ * {
+                display: block !important;
+            }
+
+            .pedido-card details summary::-webkit-details-marker,
+            .pedido-card details summary::marker {
                 display: none !important;
             }
 
+            /* FORZAR QUE TODOS LOS DETAILS ESTÉN ABIERTOS */
+            .pedido-card details {
+                display: block !important;
+            }
+
+            .pedido-card details > summary {
+                list-style: none !important;
+                display: block !important;
+            }
+
+            .pedido-card details > summary::-webkit-details-marker {
+                display: none !important;
+            }
+
+            .pedido-card details > * {
+                display: block !important;
+            }
+
+            /* ENCABEZADO DEL PEDIDO COMO FILA DE TABLA */
             .pedido-header {
-                background: #e8e8e8 !important;
-                border-bottom: 2px solid #000 !important;
-                padding: 8px !important;
+                background: #f0f0f0 !important;
+                border-bottom: 1px solid #000 !important;
+                padding: 3px 5px !important;
                 margin: 0 !important;
+                display: block !important;
             }
 
             .pedido-info {
-                display: flex !important;
-                flex-wrap: wrap !important;
-                justify-content: space-between !important;
-                align-items: center !important;
-                gap: 15px !important;
+                display: grid !important;
+                grid-template-columns: 1fr 1fr 1fr !important;
+                gap: 5px !important;
+                align-items: start !important;
             }
 
             .pedido-field {
                 margin: 0 !important;
-                display: inline-block !important;
+                display: block !important;
+                line-height: 1.2 !important;
             }
 
             .pedido-label {
-                font-size: 9px !important;
+                font-size: 7px !important;
                 color: #666 !important;
                 font-weight: bold !important;
-                margin-right: 5px !important;
+                margin: 0 !important;
+                display: block !important;
             }
 
             .pedido-value {
-                font-size: 11px !important;
+                font-size: 8px !important;
                 color: #000 !important;
                 font-weight: bold !important;
+                margin: 0 !important;
+                display: block !important;
             }
 
             .total-destacado {
-                font-size: 12px !important;
+                font-size: 9px !important;
                 font-weight: bold !important;
                 color: #000 !important;
             }
@@ -474,44 +517,63 @@
                 display: none !important;
             }
 
+            /* CONTENEDOR DE DETALLES SIN PADDING */
             .detalles-container {
                 padding: 0 !important;
                 margin: 0 !important;
+                display: block !important;
             }
 
+            /* TABLA DE DETALLES COMPACTA */
             .detalles-table {
                 width: 100% !important;
                 border-collapse: collapse !important;
-                font-size: 9px !important;
+                font-size: 7px !important;
                 margin: 0 !important;
                 border: 1px solid #000 !important;
+                display: table !important;
             }
 
             .detalles-table th {
-                background: #d0d0d0 !important;
+                background: #e8e8e8 !important;
                 color: #000 !important;
-                padding: 4px 6px !important;
+                padding: 2px 3px !important;
                 border: 1px solid #000 !important;
-                font-size: 9px !important;
+                font-size: 7px !important;
                 font-weight: bold !important;
-                text-align: center !important;
+                text-align: left !important;
+                display: table-cell !important;
             }
 
             .detalles-table td {
-                padding: 4px 6px !important;
+                padding: 2px 3px !important;
                 border: 1px solid #000 !important;
-                font-size: 9px !important;
+                font-size: 7px !important;
                 vertical-align: middle !important;
+                display: table-cell !important;
+            }
+
+            .detalles-table thead {
+                display: table-header-group !important;
+            }
+
+            .detalles-table tbody {
+                display: table-row-group !important;
+            }
+
+            .detalles-table tr {
+                display: table-row !important;
             }
 
             .observacion {
-                background: #f8f8f8 !important;
+                background: #f5f5f5 !important;
                 border: 1px solid #000 !important;
-                padding: 4px 6px !important;
+                padding: 2px 3px !important;
                 margin: 0 !important;
-                font-size: 9px !important;
+                font-size: 7px !important;
                 color: #000 !important;
                 font-style: italic !important;
+                display: block !important;
             }
 
             /* Estados en impresión */
@@ -525,13 +587,13 @@
             .precio {
                 text-align: right !important;
                 color: #000 !important;
-                font-weight: bold !important;
+                font-weight: normal !important;
             }
 
             .cantidad {
                 text-align: center !important;
                 color: #000 !important;
-                font-weight: bold !important;
+                font-weight: normal !important;
             }
 
             .pedido-id {
@@ -539,62 +601,35 @@
                 font-weight: bold !important;
             }
 
-            /* Forzar que todo el contenido sea visible */
-            .pedido-card * {
-                display: block !important;
-            }
-
+            /* RESETEAR MÁRGENES Y PADDINGS GLOBALMENTE */
+            .pedido-card,
+            .pedido-card *,
+            .detalles-container,
             .detalles-container * {
-                display: table !important;
-            }
-
-            .detalles-table,
-            .detalles-table * {
-                display: table !important;
-            }
-
-            .detalles-table thead,
-            .detalles-table tbody {
-                display: table-header-group !important;
-            }
-
-            .detalles-table tbody {
-                display: table-row-group !important;
-            }
-
-            .detalles-table tr {
-                display: table-row !important;
-            }
-
-            .detalles-table th,
-            .detalles-table td {
-                display: table-cell !important;
-            }
-
-            /* Compactar aún más el espaciado */
-            * {
                 margin: 0 !important;
                 padding: 0 !important;
             }
 
-            .pedido-card {
-                margin-bottom: 8px !important;
-            }
-
+            /* APLICAR PADDING ESPECÍFICO DONDE SE NECESITA */
             .pedido-header {
-                padding: 6px !important;
+                padding: 3px 5px !important;
             }
 
-            .detalles-table th,
+            .pedido-field {
+                padding: 1px 2px !important;
+            }
+
+            .detalles-table th {
+                padding: 2px 3px !important;
+            }
+
             .detalles-table td {
-                padding: 3px 4px !important;
+                padding: 2px 3px !important;
             }
 
-            /* Asegurar que las observaciones se vean */
             .observacion {
-                display: block !important;
-                margin: 2px 0 !important;
-                padding: 3px !important;
+                padding: 2px 3px !important;
+                margin: 1px 0 !important;
             }
         }
     </style>
@@ -941,16 +976,54 @@
         function printDashboard() {
             console.log('🖨️ Iniciando impresión del dashboard...');
             
-            // Expandir todos los detalles antes de imprimir
+            // FORZAR EXPANSIÓN DE TODOS LOS DETAILS
             const allDetails = document.querySelectorAll('.pedido-card');
             allDetails.forEach(detail => {
                 detail.setAttribute('open', 'true');
+                // Forzar que el contenido sea visible
+                const summary = detail.querySelector('summary');
+                const detallesContainer = detail.querySelector('.detalles-container');
+                if (summary) summary.style.display = 'block';
+                if (detallesContainer) detallesContainer.style.display = 'block';
             });
             
-            // Pequeña pausa para asegurar que los detalles se expandan
+            // FORZAR QUE TODAS LAS TABLAS SEAN VISIBLES
+            const allTables = document.querySelectorAll('.detalles-table');
+            allTables.forEach(table => {
+                table.style.display = 'table';
+                table.style.visibility = 'visible';
+                
+                // Forzar que thead y tbody sean visibles
+                const thead = table.querySelector('thead');
+                const tbody = table.querySelector('tbody');
+                if (thead) {
+                    thead.style.display = 'table-header-group';
+                    thead.style.visibility = 'visible';
+                }
+                if (tbody) {
+                    tbody.style.display = 'table-row-group';
+                    tbody.style.visibility = 'visible';
+                }
+                
+                // Forzar que todas las filas y celdas sean visibles
+                const rows = table.querySelectorAll('tr');
+                rows.forEach(row => {
+                    row.style.display = 'table-row';
+                    row.style.visibility = 'visible';
+                    
+                    const cells = row.querySelectorAll('th, td');
+                    cells.forEach(cell => {
+                        cell.style.display = 'table-cell';
+                        cell.style.visibility = 'visible';
+                    });
+                });
+            });
+            
+            // Pausa para asegurar que todo se renderice correctamente
             setTimeout(() => {
+                console.log('🖨️ Ejecutando window.print()...');
                 window.print();
-            }, 100);
+            }, 200);
         }
     </script>
 </body>
