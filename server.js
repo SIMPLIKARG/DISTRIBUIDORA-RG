@@ -89,15 +89,20 @@ async function obtenerDatosSheet(nombreHoja) {
       return datosEjemplo[nombreHoja.toLowerCase()] || [];
     }
 
+    console.log(`📊 Obteniendo datos de la hoja: ${nombreHoja}`);
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `${nombreHoja}!A:Z`,
     });
 
     const rows = response.data.values || [];
+    console.log(`📋 Filas obtenidas de ${nombreHoja}:`, rows.length);
+    
     if (rows.length === 0) return [];
 
     const headers = rows[0];
+    console.log(`📋 Encabezados de ${nombreHoja}:`, headers);
+    
     const data = rows.slice(1).map(row => {
       const obj = {};
       headers.forEach((header, index) => {
@@ -106,6 +111,7 @@ async function obtenerDatosSheet(nombreHoja) {
       return obj;
     });
 
+    console.log(`📊 Datos procesados de ${nombreHoja}:`, data.slice(0, 3)); // Mostrar solo los primeros 3
     return data;
   } catch (error) {
     console.error(`❌ Error obteniendo datos de ${nombreHoja}:`, error.message);
@@ -196,6 +202,7 @@ bot.on('callback_query', async (ctx) => {
       console.log(`🛒 ${userName} inicia nuevo pedido`);
       
       const clientes = await obtenerDatosSheet('Clientes');
+      console.log('📋 Clientes obtenidos:', clientes);
       
       if (clientes.length === 0) {
         await ctx.reply('❌ No hay clientes disponibles');
@@ -204,10 +211,16 @@ bot.on('callback_query', async (ctx) => {
       
       setUserState(userId, { step: 'seleccionar_cliente' });
       
-      const keyboard = clientes.map(cliente => [{
-        text: `👤 ${cliente.nombre}`,
-        callback_data: `cliente_${cliente.cliente_id}`
-      }]);
+      const keyboard = clientes.map(cliente => {
+        console.log('👤 Procesando cliente:', cliente);
+        const nombreCliente = cliente.nombre || cliente.Nombre || 'Cliente sin nombre';
+        const clienteId = cliente.cliente_id || cliente.Cliente_id || cliente.id;
+        
+        return [{
+          text: `👤 ${nombreCliente}`,
+          callback_data: `cliente_${clienteId}`
+        }];
+      });
       
       await ctx.editMessageText('👤 Selecciona el cliente:', {
         reply_markup: { inline_keyboard: keyboard }
@@ -218,29 +231,44 @@ bot.on('callback_query', async (ctx) => {
       console.log(`👤 Cliente seleccionado: ${clienteId}`);
       
       const clientes = await obtenerDatosSheet('Clientes');
-      const cliente = clientes.find(c => c.cliente_id == clienteId);
+      const cliente = clientes.find(c => 
+        (c.cliente_id == clienteId) || 
+        (c.Cliente_id == clienteId) || 
+        (c.id == clienteId)
+      );
+      
+      console.log('👤 Cliente encontrado:', cliente);
       
       if (!cliente) {
         await ctx.reply('❌ Cliente no encontrado');
         return;
       }
       
+      // Normalizar nombre del cliente
+      const nombreCliente = cliente.nombre || cliente.Nombre || 'Cliente';
+      const clienteNormalizado = {
+        ...cliente,
+        nombre: nombreCliente,
+        cliente_id: cliente.cliente_id || cliente.Cliente_id || cliente.id
+      };
+      
       setUserState(userId, { 
         step: 'seleccionar_categoria', 
-        cliente: cliente,
+        cliente: clienteNormalizado,
         pedido_id: `PED${Date.now()}`
       });
       
       const categorias = await obtenerDatosSheet('Categorias');
+      console.log('📂 Categorías obtenidas:', categorias);
       
       const keyboard = categorias.map(cat => [{
-        text: `📂 ${cat.categoria_nombre}`,
-        callback_data: `categoria_${cat.categoria_id}`
+        text: `📂 ${cat.categoria_nombre || cat.Categoria_nombre || 'Categoría'}`,
+        callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
       }]);
       
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
-      await ctx.editMessageText(`✅ Cliente: ${cliente.nombre}\n\n📂 Selecciona una categoría:`, {
+      await ctx.editMessageText(`✅ Cliente: ${nombreCliente}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
       
