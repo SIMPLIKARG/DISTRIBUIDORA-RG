@@ -407,226 +407,65 @@
                 color: #000 !important;
             }
 
-            /* Estilos para las tarjetas de pedido en impresión */
+            /* FORMATO TABLA COMPACTO - Estilos para pedidos */
             .pedido-card {
-                border: 1px solid #333 !important;
-                margin-bottom: 15px !important;
+                border: 2px solid #000 !important;
+                margin-bottom: 10px !important;
                 page-break-inside: avoid !important;
                 background: white !important;
+                border-radius: 0 !important;
+                overflow: visible !important;
             }
 
-            .pedido-header {
-                background: #f8f8f8 !important;
-                border-bottom: 1px solid #333 !important;
-                padding: 10px !important;
+            /* Forzar que details esté siempre abierto */
+            .pedido-card details {
+                display: block !important;
             }
 
-            .pedido-info {
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important;
-                gap: 10px !important;
+            .pedido-card summary {
+                display: block !important;
+                list-style: none !important;
             }
 
-            .pedido-field {
-                margin-bottom: 5px !important;
-            }
-
-            .pedido-label {
-                font-size: 10px !important;
-                color: #666 !important;
-                font-weight: bold !important;
-            }
-
-            .pedido-value {
-                font-size: 12px !important;
-                color: #000 !important;
-                font-weight: normal !important;
-            }
-
-            .total-destacado {
-                font-size: 14px !important;
-                font-weight: bold !important;
-                color: #000 !important;
-            }
-
-            .expand-icon {
+            .pedido-card summary::-webkit-details-marker {
                 display: none !important;
             }
 
-            /* Mostrar todos los detalles expandidos en impresión */
-            .pedido-card details {
-                open: true !important;
-            }
-
-            .pedido-card[open] summary ~ * {
-                display: block !important;
-            }
-
-            .detalles-container {
-                padding: 10px !important;
-            }
-
-            .detalles-table {
-                width: 100% !important;
-                border-collapse: collapse !important;
-                font-size: 10px !important;
-                margin-top: 10px !important;
-            }
-
-            .detalles-table th {
-                background: #e0e0e0 !important;
-                color: #000 !important;
-                padding: 8px 4px !important;
-                border: 1px solid #333 !important;
-                font-size: 10px !important;
-            }
-
-            .detalles-table td {
-                padding: 6px 4px !important;
-                border: 1px solid #666 !important;
-                font-size: 10px !important;
-            }
-
-            .observacion {
-                background: #f0f0f0 !important;
-                border: 1px solid #ccc !important;
+            .pedido-header {
+                background: #e8e8e8 !important;
+                border-bottom: 2px solid #000 !important;
                 padding: 8px !important;
-                margin: 10px 0 !important;
-                font-size: 11px !important;
-                color: #000 !important;
-            }
-
-            /* Estados en impresión */
-            .estado-confirmado,
-            .estado-pendiente,
-            .estado-borrador {
-                color: #000 !important;
-                font-weight: bold !important;
-            }
-
-            .precio {
-                text-align: right !important;
-                color: #000 !important;
-            }
-
-            .cantidad {
-                text-align: center !important;
-                color: #000 !important;
-            }
-
-            .pedido-id {
-                color: #000 !important;
-                font-weight: bold !important;
-            }
-
-            /* Forzar expansión de todos los detalles */
-            details[open] summary ~ * {
-                display: block !important;
-            }
-
-            /* Salto de página entre pedidos si es necesario */
-            .pedido-card:nth-child(3n) {
-                page-break-after: auto !important;
-            }
-        }
-        /* Estilos para impresión */
-        @media print {
-            body {
-                background: white !important;
-                padding: 0 !important;
-                font-size: 12px !important;
-            }
-
-            .container {
-                max-width: none !important;
                 margin: 0 !important;
             }
 
-            /* Ocultar elementos no necesarios para impresión */
-            .btn,
-            .tab-btn,
-            .tabs-container,
-            .estado-selector,
-            .loading-estado,
-            .acciones-pedido {
-                display: none !important;
-            }
-
-            .header {
-                background: white !important;
-                box-shadow: none !important;
-                border-bottom: 2px solid #333 !important;
-                margin-bottom: 20px !important;
-                padding: 20px 0 !important;
-            }
-
-            .header h1 {
-                font-size: 24px !important;
-                color: #000 !important;
-                margin-bottom: 5px !important;
-            }
-
-            .header p {
-                color: #666 !important;
-                font-size: 14px !important;
-            }
-
-            .table-container {
-                background: white !important;
-                box-shadow: none !important;
-                border-radius: 0 !important;
-            }
-
-            .table-header {
-                background: #f0f0f0 !important;
-                color: #000 !important;
-                border-bottom: 2px solid #333 !important;
-                padding: 15px !important;
-            }
-
-            .table-header h2 {
-                font-size: 18px !important;
-                color: #000 !important;
-            }
-
-            /* Estilos para las tarjetas de pedido en impresión */
-            .pedido-card {
-                border: 1px solid #333 !important;
-                margin-bottom: 15px !important;
-                page-break-inside: avoid !important;
-                background: white !important;
-            }
-
-            .pedido-header {
-                background: #f8f8f8 !important;
-                border-bottom: 1px solid #333 !important;
-                padding: 10px !important;
-            }
-
             .pedido-info {
-                display: grid !important;
-                grid-template-columns: repeat(3, 1fr) !important;
-                gap: 10px !important;
+                display: flex !important;
+                flex-wrap: wrap !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                gap: 15px !important;
             }
 
             .pedido-field {
-                margin-bottom: 5px !important;
+                margin: 0 !important;
+                display: inline-block !important;
             }
 
             .pedido-label {
-                font-size: 10px !important;
+                font-size: 9px !important;
                 color: #666 !important;
                 font-weight: bold !important;
+                margin-right: 5px !important;
             }
 
             .pedido-value {
-                font-size: 12px !important;
+                font-size: 11px !important;
                 color: #000 !important;
-                font-weight: normal !important;
+                font-weight: bold !important;
             }
 
             .total-destacado {
-                font-size: 14px !important;
+                font-size: 12px !important;
                 font-weight: bold !important;
                 color: #000 !important;
             }
@@ -635,47 +474,44 @@
                 display: none !important;
             }
 
-            /* Mostrar todos los detalles expandidos en impresión */
-            .pedido-card details {
-                open: true !important;
-            }
-
-            .pedido-card[open] summary ~ * {
-                display: block !important;
-            }
-
             .detalles-container {
-                padding: 10px !important;
+                padding: 0 !important;
+                margin: 0 !important;
             }
 
             .detalles-table {
                 width: 100% !important;
                 border-collapse: collapse !important;
-                font-size: 10px !important;
-                margin-top: 10px !important;
+                font-size: 9px !important;
+                margin: 0 !important;
+                border: 1px solid #000 !important;
             }
 
             .detalles-table th {
-                background: #e0e0e0 !important;
+                background: #d0d0d0 !important;
                 color: #000 !important;
-                padding: 8px 4px !important;
-                border: 1px solid #333 !important;
-                font-size: 10px !important;
+                padding: 4px 6px !important;
+                border: 1px solid #000 !important;
+                font-size: 9px !important;
+                font-weight: bold !important;
+                text-align: center !important;
             }
 
             .detalles-table td {
-                padding: 6px 4px !important;
-                border: 1px solid #666 !important;
-                font-size: 10px !important;
+                padding: 4px 6px !important;
+                border: 1px solid #000 !important;
+                font-size: 9px !important;
+                vertical-align: middle !important;
             }
 
             .observacion {
-                background: #f0f0f0 !important;
-                border: 1px solid #ccc !important;
-                padding: 8px !important;
-                margin: 10px 0 !important;
-                font-size: 11px !important;
+                background: #f8f8f8 !important;
+                border: 1px solid #000 !important;
+                padding: 4px 6px !important;
+                margin: 0 !important;
+                font-size: 9px !important;
                 color: #000 !important;
+                font-style: italic !important;
             }
 
             /* Estados en impresión */
@@ -689,11 +525,13 @@
             .precio {
                 text-align: right !important;
                 color: #000 !important;
+                font-weight: bold !important;
             }
 
             .cantidad {
                 text-align: center !important;
                 color: #000 !important;
+                font-weight: bold !important;
             }
 
             .pedido-id {
@@ -701,14 +539,62 @@
                 font-weight: bold !important;
             }
 
-            /* Forzar expansión de todos los detalles */
-            details[open] summary ~ * {
+            /* Forzar que todo el contenido sea visible */
+            .pedido-card * {
                 display: block !important;
             }
 
-            /* Salto de página entre pedidos si es necesario */
-            .pedido-card:nth-child(3n) {
-                page-break-after: auto !important;
+            .detalles-container * {
+                display: table !important;
+            }
+
+            .detalles-table,
+            .detalles-table * {
+                display: table !important;
+            }
+
+            .detalles-table thead,
+            .detalles-table tbody {
+                display: table-header-group !important;
+            }
+
+            .detalles-table tbody {
+                display: table-row-group !important;
+            }
+
+            .detalles-table tr {
+                display: table-row !important;
+            }
+
+            .detalles-table th,
+            .detalles-table td {
+                display: table-cell !important;
+            }
+
+            /* Compactar aún más el espaciado */
+            * {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .pedido-card {
+                margin-bottom: 8px !important;
+            }
+
+            .pedido-header {
+                padding: 6px !important;
+            }
+
+            .detalles-table th,
+            .detalles-table td {
+                padding: 3px 4px !important;
+            }
+
+            /* Asegurar que las observaciones se vean */
+            .observacion {
+                display: block !important;
+                margin: 2px 0 !important;
+                padding: 3px !important;
             }
         }
     </style>
