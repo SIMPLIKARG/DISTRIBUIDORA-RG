@@ -288,7 +288,29 @@ bot.on('callback_query', async (ctx) => {
       const keyboard = [];
       
       // Opción de búsqueda al inicio
-      keyboard.push([{ text: '🔍 Buscar cliente', callback_data: 'buscar_cliente' }]);
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
       
       // Separador visual
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
@@ -325,58 +347,40 @@ bot.on('callback_query', async (ctx) => {
       });
       keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
-      });
-      
-      // Separador visual
-      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
-      
-      // Agregar cada localidad
-      localidades.forEach(localidad => {
-        const cantidadClientes = clientesAgrupados[localidad].length;
-        keyboard.push([{
-          text: `📍 ${localidad} (${cantidadClientes})`,
-          callback_data: `localidad_${localidad}`
-        }]);
       });
       
       await ctx.editMessageText('👤 Selecciona el cliente:', {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
+    } else if (callbackData === 'seguir_comprando') {
+      const userState = getUserState(userId);
+      const cliente = userState.cliente;
+      const cart = getUserCart(userId);
+      
+      if (!cliente) {
+        console.log('⚠️ No hay cliente seleccionado, redirigiendo a hacer_pedido');
+        // Si no hay cliente, redirigir a selección de cliente
+        return bot.handleUpdate({
+          callback_query: { ...ctx.callbackQuery, data: 'hacer_pedido' }
+        });
+      }
+      
+      console.log(`🛒 ${userName} sigue comprando para ${cliente.nombre}`);
+      
+      const categorias = await obtenerDatosSheet('Categorias');
+      
+      const keyboard = categorias.map(cat => [{
+        text: `📂 ${cat.categoria_nombre || cat.Categoria_nombre || 'Categoría'}`,
+        callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
+      }]);
+      
+      keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
+      keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
+      
+      const cartInfo = cart.length > 0 ? ` (${cart.length} productos)` : '';
+      
+      await ctx.editMessageText(`✅ Cliente: ${cliente.nombre}${cartInfo}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
       
