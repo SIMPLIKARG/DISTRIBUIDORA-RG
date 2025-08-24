@@ -190,7 +190,7 @@ bot.on('callback_query', async (ctx) => {
   console.log(`🔘 Callback de ${userName}: ${callbackData}`);
   
   try {
-    await ctx.answerCallbackQuery();
+    await ctx.answerCbQuery();
     
     if (callbackData === 'hacer_pedido') {
       console.log(`🛒 ${userName} inicia nuevo pedido`);
