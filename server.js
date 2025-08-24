@@ -301,8 +301,266 @@ bot.on('callback_query', async (ctx) => {
           callback_data: `localidad_${localidad}`
         }]);
       });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
       
-      await ctx.editMessageText('👤 Selecciona el cliente:', {
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      
+      // Separador visual
+      keyboard.push([{ text: '📍 ── LOCALIDADES ──', callback_data: 'separator' }]);
+      
+      // Agregar cada localidad
+        await ctx.reply('🔢 Escribe la cantidad que deseas:');
+      
+      // Agregar cada localidad UNA SOLA VEZ
+      localidades.forEach(localidad => {
+        const cantidadClientes = clientesAgrupados[localidad].length;
+        keyboard.push([{
+          text: `📍 ${localidad} (${cantidadClientes})`,
+          callback_data: `localidad_${localidad}`
+        }]);
+      });
+      
+      await ctx.reply('👤 Selecciona el cliente:', {
+        reply_markup: { inline_keyboard: keyboard }
+      });
+      
+    } else if (callbackData === 'seguir_comprando') {
+      const userState = getUserState(userId);
+      const cliente = userState.cliente;
+      const cart = getUserCart(userId);
+      
+      if (!cliente) {
+        return bot.handleUpdate({
+          callback_query: { ...ctx.callbackQuery, data: 'hacer_pedido' }
+        });
+      }
+      
+      console.log(`🛒 ${userName} sigue comprando para ${cliente.nombre}`);
+      
+      const categorias = await obtenerDatosSheet('Categorias');
+      
+      const keyboard = categorias.map(cat => [{
+        text: `📂 ${cat.categoria_nombre || cat.Categoria_nombre || 'Categoría'}`,
+        callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
+      }]);
+      
+      keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
+      keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
+      
+      const cartInfo = cart.length > 0 ? ` (${cart.length} productos)` : '';
+      
+      await ctx.editMessageText(`✅ Cliente: ${cliente.nombre}${cartInfo}\n\n📂 Selecciona una categoría:`, {
         reply_markup: { inline_keyboard: keyboard }
       });
       
@@ -327,8 +585,7 @@ bot.on('callback_query', async (ctx) => {
       const nombreCliente = cliente.nombre || cliente.Nombre || 'Cliente';
       const clienteNormalizado = {
         ...cliente,
-        nombre: nombreCliente,
-        cliente_id: cliente.cliente_id || cliente.Cliente_id || cliente.id
+        nombre: nombreCliente
       };
       
       setUserState(userId, { 
@@ -344,6 +601,7 @@ bot.on('callback_query', async (ctx) => {
         callback_data: `categoria_${cat.categoria_id || cat.Categoria_id || cat.id}`
       }]);
       
+      keyboard.push([{ text: '🔍 Buscar producto', callback_data: 'buscar_producto_general' }]);
       keyboard.push([{ text: '🛒 Ver carrito', callback_data: 'ver_carrito' }]);
       
       await ctx.editMessageText(`✅ Cliente: ${nombreCliente}\n\n📂 Selecciona una categoría:`, {
@@ -493,7 +751,7 @@ bot.on('callback_query', async (ctx) => {
       });
       setUserCart(userId, cart);
       
-      await ctx.editMessageText(
+      await ctx.reply(
         `✅ Agregado al carrito:\n🛍️ ${producto.producto_nombre}\n📦 Cantidad: ${cantidad}\n💰 Subtotal: $${importe.toLocaleString()}\n\n¿Qué más necesitas?`,
         {
           reply_markup: {
@@ -510,7 +768,7 @@ bot.on('callback_query', async (ctx) => {
       const cart = getUserCart(userId);
       
       if (cart.length === 0) {
-        await ctx.editMessageText('🛒 Tu carrito está vacío', {
+        await ctx.reply('🛒 Tu carrito está vacío', {
           reply_markup: {
             inline_keyboard: [
               [{ text: '🛍️ Empezar a comprar', callback_data: 'hacer_pedido' }]
@@ -532,7 +790,7 @@ bot.on('callback_query', async (ctx) => {
       
       mensaje += `💰 *Total: $${total.toLocaleString()}*`;
       
-      await ctx.editMessageText(mensaje, {
+      await ctx.reply(mensaje, {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
@@ -555,7 +813,7 @@ bot.on('callback_query', async (ctx) => {
       
     } else if (callbackData === 'vaciar_carrito') {
       setUserCart(userId, []);
-      await ctx.editMessageText('🗑️ Carrito vaciado', {
+      await ctx.reply('🗑️ Carrito vaciado', {
         reply_markup: {
           inline_keyboard: [
             [{ text: '🛍️ Empezar a comprar', callback_data: 'hacer_pedido' }]
@@ -565,7 +823,7 @@ bot.on('callback_query', async (ctx) => {
       
     } else if (callbackData === 'buscar_cliente') {
       setUserState(userId, { ...getUserState(userId), step: 'buscar_cliente' });
-      await ctx.editMessageText('🔍 Escribe el nombre del cliente que buscas:');
+      await ctx.reply('🔍 Escribe el nombre del cliente que buscas:');
       
     } else if (callbackData.startsWith('buscar_producto_')) {
       const categoriaId = parseInt(callbackData.split('_')[2]);
@@ -574,7 +832,7 @@ bot.on('callback_query', async (ctx) => {
         step: 'buscar_producto',
         categoria_busqueda: categoriaId
       });
-      await ctx.editMessageText('🔍 Escribe el nombre del producto que buscas:');
+      await ctx.reply('🔍 Escribe el nombre del producto que buscas:');
       
     }
     
@@ -718,9 +976,16 @@ bot.on('text', async (ctx) => {
         text: `🛍️ ${producto.producto_nombre}`,
         callback_data: `producto_${producto.producto_id}`
       }]);
-      
-      keyboard.push([{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }]);
       keyboard.push([{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]);
+      const botonesBusquedaExitosa = categoriaId ? [
+        [{ text: '🔍 Buscar de nuevo', callback_data: `buscar_producto_${categoriaId}` }],
+        [{ text: '📂 Ver categoría', callback_data: `categoria_${categoriaId}` }]
+      ] : [
+        [{ text: '🔍 Buscar de nuevo', callback_data: 'buscar_producto_general' }],
+        [{ text: '📂 Ver categorías', callback_data: 'seguir_comprando' }]
+      ];
+      
+      keyboard.push(...botonesBusquedaExitosa);
       
       await ctx.reply(`🔍 Encontrados ${productosFiltrados.length} producto(s):`, {
         reply_markup: { inline_keyboard: keyboard }
